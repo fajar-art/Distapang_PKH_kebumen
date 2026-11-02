@@ -25,31 +25,36 @@ export async function getDatabaseSchema(): Promise<string> {
 export const compactDatabaseSchema = `
 TABEL & FOREIGN KEY UTAMA SIMANTAP KEBUMEN:
 - anggota_users(id, nama, nip_username, role, status)
-- petugas_ib(id_kompetensi, id_user -> anggota_users.id, nama_petugas, kompetensi, wilayah_puskeswan)
+- petugas_ib(id_kompetensi, id_user -> anggota_users.id, nama_petugas, kompetensi, wilayah_puskeswan, wilayah_kerja_tambahan) -- Kolom 'kompetensi' berisi daftar keahlian dipisahkan tanda koma (contoh: 'IB, PKB, ATR, Paramedik'). Untuk mencari petugas dengan kompetensi tertentu gunakan: LIKE '%PKB%', LIKE '%ATR%', LIKE '%Paramedik%'. Total seluruh petugas IB terdaftar ada di tabel ini. Wilayah kerja petugas diambil dari kolom 'wilayah_puskeswan' dan 'wilayah_kerja_tambahan'.
 - detil_sapi(id_sapi, nama_sapi, breed, id_desa -> desa.id_desa, status, tanggal_lahir)
 - desa(id_desa, desa, id_kecamatan -> kecamatan.id_kecamatan)
 - kecamatan(id_kecamatan, kecamatan)
 - hewan(id_hewan, jenis_hewan) -- Daftar jenis hewan: Sapi, sapi_potong, Sapi PO, Sapi Perah, sapi_kurban, Kambing, Domba, Ayam, Ayam Kampung, Ayam Petelur, ayam_broiler, ayam_buras, ayam_ras, Kerbau, Kuda, Kelinci, Itik, Bebek, Entog, Angsa, Merpati, Puyuh, babi.
-- populasi(id_populasi, id_hewan -> hewan.id_hewan, id_desa -> desa.id_desa, tahun, triwulan, anak_jantan, anak_betina, muda_jantan, muda_betina, dewasa_jantan, dewasa_betina, total) -- WAJIB JOIN hewan h ON p.id_hewan = h.id_hewan untuk filter nama hewan (misal Sapi, sapi_potong, Kambing, Domba, dll.), dan gunakan SUM(p.total) untuk total populasi.
+- populasi(id_populasi, id_hewan -> hewan.id_hewan, id_desa -> desa.id_desa, tahun, triwulan, anak_jantan, anak_betina, muda_jantan, muda_betina, dewasa_jantan, dewasa_betina, total) -- WAJIB JOIN hewan h ON p.id_hewan = h.id_hewan untuk filter nama hewan (misal Sapi, sapi_potong, Kambing, Domba, Ayam, dll.). PENTING: Populasi dicatat per triwulan. Selalu ambil periode TERBARU (WHERE p.tahun = (SELECT MAX(tahun) FROM populasi) AND p.triwulan = (SELECT MAX(triwulan) FROM populasi WHERE tahun = (SELECT MAX(tahun) FROM populasi))) kecuali jika pengguna menyebutkan tahun atau triwulan spesifik. Dilarang menjumlahkan seluruh triwulan karena populasi akan berlipat ganda 4 kali! Satuan populasi adalah 'ekor'.
 - produksi(id_produksi, jenis ('pemotongan','telur'), id_hewan -> hewan.id_hewan, tahun, triwulan, total, total_ekor_butir, hewan) -- Untuk produksi telur, filter WHERE jenis = 'telur'. Kolom total adalah jumlah produksi dalam KILOGRAM (kg). Kolom total_ekor_butir adalah jumlah butir telur.
 - data_farm(id, kategori ('broiler','petelur','general'), hewan ('ayam_broiler','sapi_potong','Domba','babi','Ayam Petelur'), nama_badan_usaha, nama_unit_farm, jumlah_populasi, kapasitas_gudang, kecamatan, desa) -- Untuk menghitung JUMLAH PETERNAKAN/FARM (misal ayam broiler, petelur, sapi), gunakan COUNT(*) AS jumlah_unit_farm dengan filter hewan LIKE '%broiler%' OR kategori = 'broiler'.
 - ktt_master(id_ktt, nama_kelompok, kecamatan, desa, kelas_kelompok, gapoktan_induk, jenis_kelompok, luas_lahan_ha, nama_ketua, anggota_laki, anggota_perempuan) -- WAJIB gunakan kolom kelas_kelompok (bukan kelas) saat mencari kelas KTT (nilai: 'Pemula', 'Lanjut', 'Madya', 'Utama'). Gunakan LIKE '%nama%' saat mencari nama_kelompok.
-- kegiatan_ktt(id_kegiatan, tanggal, id_ktt, nama_ktt, nama_kegiatan, tim_pelaksana, hasil_kegiatan, kecamatan, desa) -- Kolom nama kegiatan adalah nama_kegiatan (bukan kegiatan).
-- capaian_sklb(id, no_urut, grup, tanggal, id_desa, target, capaian, selisih, tahun, desa, kecamatan) -- Untuk menghitung capaian/target SKLB: gunakan SUM(capaian) AS total_capaian, SUM(target) AS total_target, SUM(selisih) AS total_selisih.
+- kegiatan_ktt(id_kegiatan, tanggal, id_ktt, nama_ktt, nama_kegiatan, tim_pelaksana, hasil_kegiatan, kecamatan, desa) -- Kolom nama kegiatan adalah nama_kegiatan (bukan kegiatan). Kolom 'tanggal' berformat YYYY-MM-DD sebagai acuan filter waktu hari ini (CURDATE()), minggu ini (DATE_SUB(CURDATE(), INTERVAL 7 DAY)), bulan ini (MONTH(CURDATE())), dan tahun ini (YEAR(CURDATE())).
+- capaian_sklb(id, no_urut, grup ('timur', 'barat'), tanggal, id_desa, target, capaian, selisih, tahun, desa, kecamatan) -- Data SKLB memiliki 2 grup: 'timur' dan 'barat'. Kolom 'tanggal' menggunakan nama bulan bahasa Inggris (misal: '22 June 2026', '12 August 2026', '2 July 2026'). Untuk capaian per grup dan tahun: WHERE LOWER(grup) = 'timur' (atau 'barat') AND (tahun = 2026 OR tanggal LIKE '%2026%'). Pemetaan bulan Inggris: Januari->January, Februari->February, Maret->March, April->April, Mei->May, Juni->June, Juli->July, Agustus->August, September->September, Oktober->October, November->November, Desember->December. Tuliskan format: Total Capaian SKLB = X ekor, Target = Y ekor, Selisih = Z ekor.
 - puskeswan_profil(id_puskeswan, nama_puskeswan, dokter_hewan, wilayah_binaan, alamat, kontak, jam_operasional, layanan, fasilitas) -- Berisi 8 Puskeswan di Kebumen, dokter hewan pengampu, dan wilayah binaannya.
 - wilayah_binaan(id_binaan, id_puskeswan, id_kecamatan, binaan)
 - laporan_puskeswan(id, tahun, bulan, puskeswan, retribusi, bef, cacingan, scabies, orf, pmk_diag, lsd_diag)
 - barang(id_barang, nama_barang, jenis_barang ('Vaksin','Obat','Straw','Alat'), merk, satuan, kategori) -- Master barang dinas dan puskeswan.
-- stok_barang_dinas(id_stock_dinas, id_barang -> barang.id_barang, jumlah_stok, stok_minimum, lokasi_penyimpanan, tahun, bulan) -- Kolom nama_barang di stok_barang_dinas kosong. WAJIB JOIN barang b ON s.id_barang = b.id_barang untuk mengambil b.nama_barang, b.jenis_barang, dan b.satuan.
+- stok_barang_dinas(id_stock_dinas, id_barang -> barang.id_barang, jumlah_stok, stok_minimum, lokasi_penyimpanan, tahun, bulan) -- Kolom nama_barang di stok_barang_dinas kosong karena merujuk ke tabel barang via id_barang. WAJIB JOIN barang b ON s.id_barang = b.id_barang untuk mengambil nama barang (b.nama_barang), jenis barang (b.jenis_barang), merk, dan satuannya (b.satuan).
 - stok_puskeswan(id_stok, id_puskeswan, nama_barang, jumlah_stok, satuan)
 - dropping_keswan(id_dropping_keswan, id_puskeswan, nama_barang, jumlah, satuan, tahun, bulan)
-- diagnosa(id_diagnosa, diagnosa_nama, kategori_penyakit) -- Nama penyakit seperti PMK, LSD, BEF, Cacingan, Scabies, ORF, dll. disimpan di kolom diagnosa_nama.
-- keswan_laporan_penyakit(id_laporan_penyakit, tahun, bulan, id_puskeswan -> puskeswan_profil.id_puskeswan, id_diagnosa -> diagnosa.id_diagnosa, id_kecamatan -> kecamatan.id_kecamatan, jumlah_kasus, keterangan) -- WAJIB JOIN diagnosa untuk mencari nama penyakit (diagnosa_nama), gunakan SUM(jumlah_kasus) untuk total kasus penyakit, dan LEFT JOIN kecamatan karena id_kecamatan bisa NULL.
+- diagnosa(id_diagnosa, diagnosa_nama, kategori_penyakit) -- Nama penyakit seperti PMK, LSD, BEF, Cacingan, Scabies, ORF, dll. Gunakan LIKE '%<nama_penyakit>%' untuk pencarian nama penyakit secara fleksibel. disimpan di kolom diagnosa_nama.
+- keswan_laporan_penyakit(id_laporan_penyakit, tahun, bulan, id_puskeswan -> puskeswan_profil.id_puskeswan, id_diagnosa -> diagnosa.id_diagnosa, id_kecamatan -> kecamatan.id_kecamatan, jumlah_kasus, keterangan) -- KASUS PENYAKIT: Gunakan SUM(jumlah_kasus) untuk menghitung total kejadian kasus. WAJIB JOIN ke tabel 'diagnosa' d ON lp.id_diagnosa = d.id_diagnosa untuk mencocokkan nama penyakit (contoh filter nama penyakit: d.diagnosa_nama LIKE '%LSD%', d.diagnosa_nama LIKE '%PMK%'). PENTING KECAMATAN/PUSKESWAN: Pada tabel ini kolom id_kecamatan sering bernilai NULL karena laporan penyakit dicatat berbasis Puskeswan (id_puskeswan). Untuk mengelompokkan atau memfilter berdasarkan KECAMATAN / WILAYAH PUSKESWAN:
+  * WAJIB JOIN ke puskeswan_profil pp ON lp.id_puskeswan = pp.id_puskeswan
+  * Kolom 'pp.wilayah_binaan' berisi daftar kecamatan binaan (contoh: 'Kecamatan Klirong, Kecamatan Petanahan, Kecamatan Adimulyo').
+  * Atau JOIN ke tabel wilayah_binaan wb ON lp.id_puskeswan = wb.id_puskeswan JOIN kecamatan k ON wb.id_kecamatan = k.id_kecamatan (atau COALESCE(k.kecamatan, pp.nama_puskeswan)).
+  * Jika pengguna menanyakan sebaran penyakit per kecamatan (contoh: 'penyakit LSD ada di kecamatan mana saja, urutkan dari yang terbanyak'): sebutkan semua wilayah/kecamatan yang terdata memiliki kasus secara lengkap!
 - lalin_ternak(id_lalin, kategori, wilayah, tanggal_pengiriman, no_skkh, nama_pemilik, alamat_pemilik, jenis_ternak, umur, satuan_umur, jumlah, satuan_jumlah, asal_ternak, tujuan_ternak, ket)
 - vaksin_apbd_target(id_target, id_puskeswan, target_pmk, realisasi_pmk)
 - capaian_vaksin_pmk_2026(id, kecamatan, desa, target, capaian)
 - vaksinasi(id_vaksinasi, id_puskeswan, id_user, nama, tanggal, bulan, triwulan, tahun, id_vaksin, id_hewan, jumlah)
-- aset_kendaraan(id_aset, merk_type, tahun, nopol_baru, nomor_mesin, nomor_rangka)
+- aset_kendaraan(id_aset, merk_type, tahun, nopol_baru, nomor_mesin, nomor_rangka) -- Daftar aset kendaraan dinas yang terdaftar di sistem SiMantap.
+- peminjaman_aset(id_history_peminjaman, id_aset -> aset_kendaraan.id_aset, id_peminjam -> anggota_users.id, tanggal_peminjaman, tanggal_pengembalian, nama_peminjam, merk_type, nopol_baru) -- Referensi untuk siapa saja yang menggunakan/meminjam aset kendaraan dinas.
 - nkv_kebumen(id_nkv, nama_perusahaan, jenis_usaha, no_nkv, level_nkv, produk, alamat)
 - pembinaan_nkv(id_pembinaan, nama_usaha, jenis_usaha, proses, pelatihan_higiene, pengeluaran_rekomendasi, keterangan)
 - kesmavet_pakan_hewan(id_pakan, id_kap_pakan, nama_pakan, kategori, stok_ton_bulan, produsen_kelompok, kontak, harga_per_kg, keterangan)
@@ -72,6 +77,54 @@ PEDOMAN KATEGORI PENGGUNA DI SIMANTAP:
 - Tim Keswan: pengguna yang namanya mengandung 'Keswan' (dan bukan Puskeswan) pada anggota_users.
 - Tim Kesmavet: pengguna yang namanya mengandung 'Kemavet' atau 'Kesmavet' pada anggota_users.
 - Puskeswan: pengguna yang nama atau NIP-nya mengandung 'Puskeswan' pada anggota_users.
+Contoh 43 (Filter Waktu 'Hari Ini' - CURDATE()):
+Pertanyaan: "Berapa kegiatan KTT hari ini?"
+SQL: SELECT COUNT(*) AS total_kegiatan FROM kegiatan_ktt WHERE tanggal = CURDATE();
+
+Contoh 44 (Filter Waktu 'Minggu Ini' - 7 Hari Terakhir):
+Pertanyaan: "Ada berapa pengiriman lalu lintas ternak (lalin ternak / SKKH) minggu ini?"
+SQL: SELECT COUNT(*) AS total_lalin FROM lalin_ternak WHERE tanggal_pengiriman >= DATE_SUB(CURDATE(), INTERVAL 7 DAY);
+
+Contoh 45 (Filter Waktu 'Bulan Ini' - Bulan Berjalan):
+Pertanyaan: "Berapa total lalu lintas ternak bulan ini?"
+SQL: SELECT COUNT(*) AS total_lalin FROM lalin_ternak WHERE YEAR(tanggal_pengiriman) = YEAR(CURDATE()) AND MONTH(tanggal_pengiriman) = MONTH(CURDATE());
+
+Contoh 46 (Filter Waktu 'Bulan Ini' pada Tabel Berkolom Nama Bulan):
+Pertanyaan: "Berapa kasus penyakit hewan bulan ini?"
+SQL: SELECT SUM(lp.jumlah_kasus) AS total_kasus FROM keswan_laporan_penyakit lp WHERE (LOWER(lp.bulan) = LOWER(MONTHNAME(CURDATE())) OR lp.bulan = MONTH(CURDATE())) AND lp.tahun = YEAR(CURDATE());
+
+Contoh 47 (Filter Waktu 'Kemarin'):
+Pertanyaan: "Ada berapa kegiatan KTT kemarin?"
+SQL: SELECT COUNT(*) AS total_kegiatan FROM kegiatan_ktt WHERE tanggal = DATE_SUB(CURDATE(), INTERVAL 1 DAY);
+
+Contoh 48 (Petugas IB & Kompetensi PKB, ATR, Paramedik):
+Pertanyaan: "Ada berapa petugas PKB yang terdaftar di sistem?"
+SQL: SELECT COUNT(*) AS total_petugas_pkb FROM petugas_ib WHERE kompetensi LIKE '%PKB%';
+
+Contoh 49 (Wilayah Kerja Petugas IB):
+Pertanyaan: "Siapa petugas IB di wilayah Puskeswan Buayan dan wilayah kerja tambahannya?"
+SQL: SELECT nama_petugas, kompetensi, wilayah_puskeswan, wilayah_kerja_tambahan FROM petugas_ib WHERE wilayah_puskeswan LIKE '%Buayan%';
+
+Contoh 50 (Pengguna Aset Kendaraan Dinas):
+Pertanyaan: "Siapa saja yang saat ini menggunakan aset kendaraan dinas?"
+SQL: SELECT DISTINCT nama_peminjam, merk_type, nopol_baru, tanggal_peminjaman FROM peminjaman_aset WHERE tanggal_pengembalian IS NULL;
+
+Contoh 51 (Aset Terdaftar di Sistem):
+Pertanyaan: "Aset apa saja yang terdaftar di sistem?"
+SQL: SELECT merk_type, nopol_baru, tahun FROM aset_kendaraan;
+
+Contoh 52 (Capaian SKLB Grup Timur Tahun 2026):
+Pertanyaan: "Berapa capaian SKLB tim atau grup timur tahun 2026?"
+SQL: SELECT SUM(target) AS total_target, SUM(capaian) AS total_capaian, SUM(selisih) AS total_selisih FROM capaian_sklb WHERE LOWER(grup) = 'timur' AND (tahun = 2026 OR tanggal LIKE '%2026%');
+
+Contoh 53 (Capaian SKLB Grup Barat Bulan Juli 2026):
+Pertanyaan: "Berapa capaian SKLB grup barat bulan Juli 2026?"
+SQL: SELECT SUM(target) AS total_target, SUM(capaian) AS total_capaian, SUM(selisih) AS total_selisih FROM capaian_sklb WHERE LOWER(grup) = 'barat' AND (tanggal LIKE '%July%' OR tanggal LIKE '%Juli%') AND (tahun = 2026 OR tanggal LIKE '%2026%');
+
+Contoh 54 (Kegiatan KTT Acuan Tanggal YYYY-MM-DD):
+Pertanyaan: "Berapa kegiatan KTT tahun ini?"
+SQL: SELECT COUNT(*) AS total_kegiatan FROM kegiatan_ktt WHERE YEAR(tanggal) = YEAR(CURDATE());
+
 `;
 
 // Contoh Few-Shot Terstruktur SiMantap CLD
@@ -151,9 +204,9 @@ Contoh 19 (Kegiatan KTT):
 Pertanyaan: "Berapa banyak kegiatan KTT yang sudah tercatat?"
 SQL: SELECT COUNT(*) AS total_kegiatan FROM kegiatan_ktt;
 
-Contoh 20 (Populasi Ternak Hewan):
+Contoh 20 (Populasi Ternak Hewan - Periode Triwulan Terakhir):
 Pertanyaan: "Berapa total populasi sapi potong di Kebumen?"
-SQL: SELECT SUM(p.total) AS total_populasi FROM populasi p JOIN hewan h ON p.id_hewan = h.id_hewan WHERE h.jenis_hewan LIKE '%sapi_potong%' OR h.jenis_hewan = 'Sapi';
+SQL: SELECT h.jenis_hewan, SUM(p.total) AS total_populasi FROM populasi p JOIN hewan h ON p.id_hewan = h.id_hewan WHERE (h.jenis_hewan LIKE '%sapi_potong%' OR h.jenis_hewan = 'Sapi') AND p.tahun = (SELECT MAX(tahun) FROM populasi) AND p.triwulan = (SELECT MAX(triwulan) FROM populasi WHERE tahun = (SELECT MAX(tahun) FROM populasi)) GROUP BY h.jenis_hewan;
 
 Contoh 21 (Produksi Telur dalam KILOGRAM):
 Pertanyaan: "Berapa total produksi telur di Kebumen?"
@@ -270,5 +323,81 @@ SQL: SELECT DISTINCT m.nama_kelompok FROM ktt_master m INNER JOIN ktt_documents 
 Contoh 41 (KTT yang TIDAK MEMILIKI Dokumen):
 Pertanyaan: "KTT mana saja yang belum mengupload dokumen sama sekali?"
 SQL: SELECT m.nama_kelompok FROM ktt_master m LEFT JOIN ktt_documents d ON m.id_ktt = d.id_ktt WHERE d.id_ktt IS NULL;
+
+Contoh 42 (Penolakan pembuatan program)
+pertanyaan: "buatkan saya program html landing page"
+Jawaban: "Maaf saya hanya asisten admin yang hanya membaca data saja"
+Contoh 43 (Filter Waktu 'Hari Ini' - CURDATE()):
+Pertanyaan: "Berapa kegiatan KTT hari ini?"
+SQL: SELECT COUNT(*) AS total_kegiatan FROM kegiatan_ktt WHERE tanggal = CURDATE();
+
+Contoh 44 (Filter Waktu 'Minggu Ini' - 7 Hari Terakhir):
+Pertanyaan: "Ada berapa pengiriman lalu lintas ternak (lalin ternak / SKKH) minggu ini?"
+SQL: SELECT COUNT(*) AS total_lalin FROM lalin_ternak WHERE tanggal_pengiriman >= DATE_SUB(CURDATE(), INTERVAL 7 DAY);
+
+Contoh 45 (Filter Waktu 'Bulan Ini' - Bulan Berjalan):
+Pertanyaan: "Berapa total lalu lintas ternak bulan ini?"
+SQL: SELECT COUNT(*) AS total_lalin FROM lalin_ternak WHERE YEAR(tanggal_pengiriman) = YEAR(CURDATE()) AND MONTH(tanggal_pengiriman) = MONTH(CURDATE());
+
+Contoh 46 (Filter Waktu 'Bulan Ini' pada Tabel Berkolom Nama Bulan):
+Pertanyaan: "Berapa kasus penyakit hewan bulan ini?"
+SQL: SELECT SUM(lp.jumlah_kasus) AS total_kasus FROM keswan_laporan_penyakit lp WHERE (LOWER(lp.bulan) = LOWER(MONTHNAME(CURDATE())) OR lp.bulan = MONTH(CURDATE())) AND lp.tahun = YEAR(CURDATE());
+
+Contoh 47 (Filter Waktu 'Kemarin'):
+Pertanyaan: "Ada berapa kegiatan KTT kemarin?"
+SQL: SELECT COUNT(*) AS total_kegiatan FROM kegiatan_ktt WHERE tanggal = DATE_SUB(CURDATE(), INTERVAL 1 DAY);
+
+Contoh 48 (Petugas IB & Kompetensi PKB, ATR, Paramedik):
+Pertanyaan: "Ada berapa petugas PKB yang terdaftar di sistem?"
+SQL: SELECT COUNT(*) AS total_petugas_pkb FROM petugas_ib WHERE kompetensi LIKE '%PKB%';
+
+Contoh 49 (Wilayah Kerja Petugas IB):
+Pertanyaan: "Siapa petugas IB di wilayah Puskeswan Buayan dan wilayah kerja tambahannya?"
+SQL: SELECT nama_petugas, kompetensi, wilayah_puskeswan, wilayah_kerja_tambahan FROM petugas_ib WHERE wilayah_puskeswan LIKE '%Buayan%';
+
+Contoh 50 (Pengguna Aset Kendaraan Dinas):
+Pertanyaan: "Siapa saja yang saat ini menggunakan aset kendaraan dinas?"
+SQL: SELECT DISTINCT nama_peminjam, merk_type, nopol_baru, tanggal_peminjaman FROM peminjaman_aset WHERE tanggal_pengembalian IS NULL;
+
+Contoh 51 (Aset Terdaftar di Sistem):
+Pertanyaan: "Aset apa saja yang terdaftar di sistem?"
+SQL: SELECT merk_type, nopol_baru, tahun FROM aset_kendaraan;
+
+Contoh 52 (Capaian SKLB Grup Timur Tahun 2026):
+Pertanyaan: "Berapa capaian SKLB tim atau grup timur tahun 2026?"
+SQL: SELECT SUM(target) AS total_target, SUM(capaian) AS total_capaian, SUM(selisih) AS total_selisih FROM capaian_sklb WHERE LOWER(grup) = 'timur' AND (tahun = 2026 OR tanggal LIKE '%2026%');
+
+Contoh 53 (Capaian SKLB Grup Barat Bulan Juli 2026):
+Pertanyaan: "Berapa capaian SKLB grup barat bulan Juli 2026?"
+SQL: SELECT SUM(target) AS total_target, SUM(capaian) AS total_capaian, SUM(selisih) AS total_selisih FROM capaian_sklb WHERE LOWER(grup) = 'barat' AND (tanggal LIKE '%July%' OR tanggal LIKE '%Juli%') AND (tahun = 2026 OR tanggal LIKE '%2026%');
+
+Contoh 54 (Kegiatan KTT Acuan Tanggal YYYY-MM-DD):
+Pertanyaan: "Berapa kegiatan KTT tahun ini?"
+SQL: SELECT COUNT(*) AS total_kegiatan FROM kegiatan_ktt WHERE YEAR(tanggal) = YEAR(CURDATE());
+
+Contoh 55 (sapi ib):
+Input: "Berapa banyak kasus PMK di Kecamatan Kebumen?"
+SQL: SELECT SUM(lp.jumlah_kasus) AS total_kasus FROM keswan_laporan_penyakit lp JOIN diagnosa d ON lp.id_diagnosa = d.id_diagnosa LEFT JOIN kecamatan k ON lp.id_kecamatan = k.id_kecamatan WHERE d.diagnosa_nama LIKE '%PMK%' AND k.kecamatan LIKE '%Kebumen%';
+
+Contoh 56 (sebaran penyakit per kecamatan):
+Input: "Berapa total kasus Anthrax tahun 2024?"
+SQL: SELECT SUM(lp.jumlah_kasus) AS total_kasus FROM keswan_laporan_penyakit lp JOIN diagnosa d ON lp.id_diagnosa = d.id_diagnosa WHERE d.diagnosa_nama LIKE '%Anthrax%' AND lp.tahun = 2024;
+
+Contoh 57 (Sebaran Penyakit LSD di Mana Saja / Urutkan Terbanyak):
+Input: "penyakit lsd ada di kecamatan mana saja, urutkan dari yang terbanyak"
+SQL: SELECT COALESCE(k.kecamatan, pp.nama_puskeswan) AS lokasi_kecamatan, SUM(lp.jumlah_kasus) AS total_kasus FROM keswan_laporan_penyakit lp JOIN diagnosa d ON lp.id_diagnosa = d.id_diagnosa JOIN puskeswan_profil pp ON lp.id_puskeswan = pp.id_puskeswan LEFT JOIN wilayah_binaan wb ON lp.id_puskeswan = wb.id_puskeswan LEFT JOIN kecamatan k ON wb.id_kecamatan = k.id_kecamatan WHERE d.diagnosa_nama LIKE '%LSD%' GROUP BY lokasi_kecamatan ORDER BY total_kasus DESC;
+
+Contoh 58 (Penyakit Apa Saja di Kecamatan / Puskeswan Tertentu Tahun Ini):
+Input: "di kecamatan klirong ada penyakit apa saja tahun ini"
+SQL: SELECT d.diagnosa_nama AS nama_penyakit, SUM(lp.jumlah_kasus) AS total_kasus FROM keswan_laporan_penyakit lp JOIN diagnosa d ON lp.id_diagnosa = d.id_diagnosa JOIN puskeswan_profil pp ON lp.id_puskeswan = pp.id_puskeswan LEFT JOIN kecamatan k ON lp.id_kecamatan = k.id_kecamatan WHERE (LOWER(k.kecamatan) LIKE '%klirong%' OR LOWER(pp.nama_puskeswan) LIKE '%klirong%' OR LOWER(pp.wilayah_binaan) LIKE '%klirong%') AND lp.tahun = YEAR(CURDATE()) GROUP BY d.diagnosa_nama ORDER BY total_kasus DESC;
+
+Contoh 59 (Target dan Capaian Vaksinasi Puskeswan Bulan Ini):
+Input: "pada bulan ini puskeswan mana yang sudah mencapai target vaksinasi dan kurang berapa banyak?"
+SQL: SELECT pp.nama_puskeswan, 3000 AS target, COALESCE(SUM(v.jumlah), 0) AS realisasi, (3000 - COALESCE(SUM(v.jumlah), 0)) AS kekurangan, ROUND((COALESCE(SUM(v.jumlah), 0) / 3000) * 100, 1) AS persen FROM puskeswan_profil pp LEFT JOIN vaksinasi v ON pp.id_puskeswan = v.id_puskeswan AND (LOWER(v.bulan) = LOWER(MONTHNAME(CURDATE())) OR v.bulan = MONTH(CURDATE())) AND v.tahun = YEAR(CURDATE()) GROUP BY pp.nama_puskeswan ORDER BY realisasi DESC;
+
+Contoh 60 (Pencapaian Target dan Realisasi IB Inseminator / Petugas Bulan Ini):
+Input: "pada bulan ini siapa yang sudah mencapai target, mendekati target ib?"
+SQL: SELECT COALESCE(p.nama_petugas, s.inseminatorName) AS nama, COUNT(s.id_ib) AS realisasi, 50 AS target, (50 - COUNT(s.id_ib)) AS selisih, ROUND((COUNT(s.id_ib) / 50) * 100, 1) AS persen FROM sapitime_ib s LEFT JOIN petugas_ib p ON LOWER(s.inseminatorName) = LOWER(p.nama_petugas) WHERE YEAR(s.date) = YEAR(CURDATE()) AND MONTH(s.date) = MONTH(CURDATE()) AND s.inseminatorName IS NOT NULL AND s.inseminatorName != '' GROUP BY nama ORDER BY realisasi DESC;
+
 
 `;

@@ -11,6 +11,7 @@ type PageLinkInfo = {
   label: string;
   href: string;
   adminOnly?: boolean;
+  searchQuery?: string;
 };
 
 type Message = {
@@ -295,14 +296,155 @@ export default function AiChatWidget() {
     );
   }
 
-  // Navigasi ke halaman data sesuai mekanisme dashboard /beranda
+  // Terapkan filter / pencarian kata kunci ke dalam dokumen halaman (mendukung iframe maupun halaman langsung)
+  function applyFilterToDoc(doc: Document, searchQuery: string, submenuKey: string): boolean {
+    if (!searchQuery) return false;
+    const qClean = searchQuery.trim();
+    const qUpper = qClean.toUpperCase();
+    const qLower = qClean.toLowerCase();
+    let applied = false;
+
+    // 1. Khusus Database KTT: jika kata kunci cocok dengan tombol kecamatan di sidebar
+    if (submenuKey === "database-ktt") {
+      const allButtons = Array.from(doc.querySelectorAll<HTMLButtonElement>("aside button, button"));
+      const kecButton = allButtons.find((btn) => {
+        const text = (btn.textContent || "").trim().toUpperCase();
+        return text.includes(qUpper) && !text.includes("SEMUA WILAYAH");
+      });
+      if (kecButton) {
+        kecButton.click();
+        applied = true;
+      }
+    }
+
+    // 2. Khusus Sebaran Farm: jika kata kunci cocok dengan tab komoditas (broiler, petelur, kambing, sapi, dll)
+    if (submenuKey === "data-farm") {
+      const allButtons = Array.from(doc.querySelectorAll<HTMLButtonElement>("button"));
+      const farmTab = allButtons.find((btn) => {
+        const text = (btn.textContent || "").trim().toLowerCase();
+        return text.includes(qLower);
+      });
+      if (farmTab) {
+        farmTab.click();
+        applied = true;
+      }
+    }
+
+    // 3. Khusus SKLB: jika kata kunci rekapitulasi timur / barat
+    if (submenuKey === "sklb") {
+      if (qLower.includes("timur") || qLower.includes("barat") || qLower.includes("grup")) {
+        const rekapTab = Array.from(doc.querySelectorAll<HTMLButtonElement>("button")).find((btn) => {
+          const text = (btn.textContent || "").toLowerCase();
+          return text.includes("rekap") || text.includes("rekapitulasi");
+        });
+        if (rekapTab) {
+          rekapTab.click();
+          applied = true;
+        }
+      }
+    }
+
+    // 4. Input Pencarian Tabel (Search Bar)
+    const inputs = Array.from(
+      doc.querySelectorAll<HTMLInputElement>('input[type="text"], input[type="search"]')
+    );
+    const searchInput =
+      inputs.find((inp) => {
+        const ph = (inp.placeholder || "").toLowerCase();
+        const idOrClass = ((inp.id || "") + " " + (inp.className || "")).toLowerCase();
+        return ph.includes("cari") || ph.includes("search") || idOrClass.includes("search");
+      }) || (inputs.length === 1 ? inputs[0] : null);
+
+    if (searchInput) {
+      const nativeSetter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        "value"
+      )?.set;
+      if (nativeSetter) {
+        nativeSetter.call(searchInput, qClean);
+      } else {
+        searchInput.value = qClean;
+      }
+      searchInput.dispatchEvent(new Event("input", { bubbles: true }));
+      searchInput.dispatchEvent(new Event("change", { bubbles: true }));
+      try {
+        searchInput.focus();
+      } catch {}
+      applied = true;
+    }
+
+    return applied;
+  }
+
+  // Picu pencarian data otomatis secara berkala hingga dokumen target selesai merender
+  function triggerAutoFilter(searchQuery: string, submenuKey: string) {
+    if (!searchQuery) return;
+
+    try {
+      sessionStorage.setItem(
+        "simantap_ai_pending_search",
+        JSON.stringify({ query: searchQuery, submenuKey, ts: Date.now() })
+      );
+    } catch {}
+
+    let attempts = 0;
+    const maxAttempts = 25; // 25 x 150ms = ~3.75 detik
+
+    const intervalId = setInterval(() => {
+      attempts++;
+      let done = false;
+
+      // Cek di dalam iframe dashboard /beranda
+      const iframe = document.querySelector("iframe") as HTMLIFrameElement | null;
+      if (iframe && iframe.contentDocument) {
+        try {
+          done = applyFilterToDoc(iframe.contentDocument, searchQuery, submenuKey);
+        } catch {}
+      }
+
+      // Cek di main document (jika bukan iframe)
+      if (!done) {
+        try {
+          done = applyFilterToDoc(document, searchQuery, submenuKey);
+        } catch {}
+      }
+
+      if (done || attempts >= maxAttempts) {
+        clearInterval(intervalId);
+      }
+    }, 150);
+  }
+
+  // Pantau perpindahan rute untuk mengeksekusi pencarian yang tertunda
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem("simantap_ai_pending_search");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Date.now() - parsed.ts < 12000) {
+          triggerAutoFilter(parsed.query, parsed.submenuKey);
+        } else {
+          sessionStorage.removeItem("simantap_ai_pending_search");
+        }
+      }
+    } catch {}
+  }, [pathname]);
+
+  // Navigasi ke halaman data sesuai mekanisme dashboard /beranda dan langsung menampilkan data yang dicari
   function handleNavigateToPage(pageLink: PageLinkInfo) {
     if (!canUserAccessPageLink(pageLink)) return;
+
+    if (pageLink.searchQuery) {
+      triggerAutoFilter(pageLink.searchQuery, pageLink.submenuKey);
+    }
 
     if (pageLink.moduleKey !== "admin" && pathname === "/beranda") {
       try {
         const url = new URL(window.location.href);
         url.searchParams.set("tab", pageLink.submenuKey);
+        if (pageLink.searchQuery) {
+          url.searchParams.set("search", pageLink.searchQuery);
+        }
         window.history.pushState({ tab: pageLink.submenuKey }, "", url.toString());
         window.dispatchEvent(new PopStateEvent("popstate"));
         return;
@@ -392,19 +534,19 @@ export default function AiChatWidget() {
         </div>
 
         {/* Teks MoosAI (Kiri) sejajar dengan Titik Hijau / Tombol X (Kanan) di Kanan Atas Widget */}
-        <div className="absolute top-3 right-0 z-20 flex items-center gap-1.5 pointer-events-none select-none">
-          <span className="text-[11px] sm:text-xs font-bold tracking-tight select-none pointer-events-none drop-shadow-[0_1px_3px_rgba(0,0,0,0.5)]">
+        <div className="absolute top-0.5 right-0.5 sm:top-1.5 sm:right-1 z-20 flex items-center gap-1 pointer-events-none select-none">
+          <span className="text-[10px] sm:text-xs font-bold tracking-tight select-none pointer-events-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)] whitespace-nowrap">
             <span className="text-azure dark:text-sky-400">Moos</span>
             <span className="text-emerald-500 dark:text-lime">AI</span>
           </span>
           {!open ? (
             <span
-              className="w-3.5 h-3.5 rounded-full bg-lime border-2 border-white dark:border-zinc-950 shadow-sm animate-pulse"
+              className="w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-full bg-lime border-2 border-white dark:border-zinc-950 shadow-sm animate-pulse"
               title="Sistem SiMantap Aktif"
             />
           ) : (
             <span
-              className="w-4 h-4 rounded-full bg-slate-900/85 dark:bg-white/90 text-white dark:text-zinc-900 flex items-center justify-center text-[9px] font-bold shadow-md"
+              className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-slate-900/85 dark:bg-white/90 text-white dark:text-zinc-900 flex items-center justify-center text-[8px] sm:text-[9px] font-bold shadow-md"
               title="Klik untuk menutup"
             >
               ✕
@@ -487,7 +629,7 @@ export default function AiChatWidget() {
                               onClick={() => handleNavigateToPage(m.pageLink!)}
                               className="inline-flex items-center gap-1.5 text-xs font-semibold text-azure dark:text-sky-400 hover:underline focus:outline-none"
                             >
-                              <span>Lihat {m.pageLink.label}</span>
+                              <span>Lihat {m.pageLink.label}{m.pageLink.searchQuery ? ` (${m.pageLink.searchQuery})` : ""}</span>
                               <ArrowRight className="w-3.5 h-3.5" />
                             </button>
                           </div>

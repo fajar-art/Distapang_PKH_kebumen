@@ -27,7 +27,7 @@ export async function POST(req: Request) {
     console.error("Error AI Text-to-SQL:", error.message);
     return NextResponse.json(
       {
-        reply: `Maaf, sistem mengalami kendala teknis saat memproses data: ${error.message}. Silakan coba kembali sesaat lagi.`,
+        reply: `Maaf, sistem mengalami kendala teknis saat memproses data,silakan tanyakan dengan lebih detail`,
       },
       { status: 500 }
     );
