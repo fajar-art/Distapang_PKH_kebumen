@@ -22,6 +22,7 @@ import FarmOverviewTab from '@/components/bitpro/data-farm/FarmOverviewTab';
 import FarmTableTab from '@/components/bitpro/data-farm/FarmTableTab';
 import FarmModal from '@/components/bitpro/data-farm/FarmModal';
 import { UniversalAuditModal } from '@/components/common/UniversalAuditModal';
+import { showToast, showConfirm } from '@/components/common/CustomToast';
 
 export default function DataFarmPage() {
   const { isReady, canCreate, canEdit } = usePageAuth('bitpro', 'data-farm');
@@ -47,6 +48,7 @@ export default function DataFarmPage() {
   // GPS Geolocation state
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsStatus, setGpsStatus] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // SEDOT DATA DARI MYSQL
   const fetchData = async () => {
@@ -249,31 +251,33 @@ export default function DataFarmPage() {
   // Simpan atau Perbarui Data Farm (POST / PUT)
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    const cat = targetCategory === 'broiler' ? 'broiler' : targetCategory === 'petelur' ? 'petelur' : 'general';
+    const payload = {
+      ...formValues,
+      kecamatan: (formValues.kecamatan || '').toUpperCase(),
+      desa: formValues.desa || formValues.kelurahan_desa || '',
+      kelurahan_desa: formValues.desa || formValues.kelurahan_desa || '',
+      jenis_ternak: formValues.jenis_ternak || COMMODITY_META[targetCategory].jenisTernak || 'Lainnya',
+    };
+
+    const isEdit = !!editingItem?.db_id;
+    if (isEdit && !canEdit) {
+      alert('Hanya Administrator yang memiliki hak akses untuk mengubah (edit) data!');
+      return;
+    }
+    if (!isEdit && !canCreate) {
+      alert('Anda tidak memiliki hak akses untuk menambah data!');
+      return;
+    }
+    const url = '/api/get-farm';
+    const method = isEdit ? 'PUT' : 'POST';
+    const body = isEdit
+      ? { id: editingItem.db_id, kategori: cat, data: payload }
+      : { kategori: cat, data: payload };
+
+    setIsSubmitting(true);
     try {
-      const cat = targetCategory === 'broiler' ? 'broiler' : targetCategory === 'petelur' ? 'petelur' : 'general';
-      const payload = {
-        ...formValues,
-        kecamatan: (formValues.kecamatan || '').toUpperCase(),
-        desa: formValues.desa || formValues.kelurahan_desa || '',
-        kelurahan_desa: formValues.desa || formValues.kelurahan_desa || '',
-        jenis_ternak: formValues.jenis_ternak || COMMODITY_META[targetCategory].jenisTernak || 'Lainnya',
-      };
-
-      const isEdit = !!editingItem?.db_id;
-      if (isEdit && !canEdit) {
-        alert('Hanya Administrator yang memiliki hak akses untuk mengubah (edit) data!');
-        return;
-      }
-      if (!isEdit && !canCreate) {
-        alert('Anda tidak memiliki hak akses untuk menambah data!');
-        return;
-      }
-      const url = '/api/get-farm';
-      const method = isEdit ? 'PUT' : 'POST';
-      const body = isEdit
-        ? { id: editingItem.db_id, kategori: cat, data: payload }
-        : { kategori: cat, data: payload };
-
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
@@ -283,40 +287,48 @@ export default function DataFarmPage() {
       if (json.success) {
         alert(isEdit ? 'Data farm berhasil diperbarui!' : 'Data farm berhasil disimpan ke database MySQL!');
         fetchData();
+        closeModal();
       } else {
         alert('Gagal menyimpan: ' + json.error);
       }
     } catch {
       alert('Terjadi kesalahan saat menyimpan data farm.');
+    } finally {
+      setIsSubmitting(false);
     }
-    closeModal();
   };
 
   // Hapus Data Farm (DELETE)
   const handleDelete = async (item: any) => {
     if (!canEdit) {
-      alert('Hanya Administrator yang memiliki hak akses untuk menghapus data!');
+      showToast.error('Hanya Administrator yang memiliki hak akses untuk menghapus data!');
       return;
     }
     const farmName = item.nama_peternak || item.nama_unit_farm || item.nama_badan_usaha || 'data farm ini';
-    if (!confirm(`Apakah Anda yakin ingin menghapus "${farmName}" dari database?`)) return;
-
+    const ok = await showConfirm({
+      title: 'Hapus Data Farm',
+      message: `Apakah Anda yakin ingin menghapus "${farmName}" dari database?`,
+      confirmText: 'Ya, Hapus',
+      cancelText: 'Batal',
+      type: 'danger',
+    });
+    if (!ok) return;
 
     try {
       if (item.db_id) {
         const res = await fetch(`/api/get-farm?id=${item.db_id}`, { method: 'DELETE' });
         const json = await res.json();
         if (json.success) {
-          alert('Data farm berhasil dihapus dari database!');
+          showToast.success('Data farm berhasil dihapus dari database!');
           fetchData();
         } else {
-          alert('Gagal menghapus: ' + json.error);
+          showToast.error('Gagal menghapus: ' + json.error);
         }
       } else {
-        alert('Data berhasil dihapus.');
+        showToast.success('Data berhasil dihapus.');
       }
     } catch {
-      alert('Terjadi kesalahan saat menghapus data farm.');
+      showToast.error('Terjadi kesalahan saat menghapus data farm.');
     }
   };
 
@@ -349,12 +361,12 @@ export default function DataFarmPage() {
 
   if (isLoading || !isReady) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center font-sans">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center font-sans">
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center animate-spin shadow-xs">
             <RefreshCw size={22} />
           </div>
-          <p className="font-sans text-xs font-bold uppercase tracking-widest text-emerald-800">
+          <p className="font-sans text-xs font-bold uppercase tracking-widest text-emerald-800 dark:text-emerald-400">
             Memuat Data Sebaran Farm Kabupaten...
           </p>
         </div>
@@ -363,9 +375,9 @@ export default function DataFarmPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-emerald-600 selection:text-white pb-20">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans selection:bg-emerald-600 selection:text-white pb-20">
       {/* ── TOP HEADER (Tema Hijau Bitpro) ── */}
-      <header className="border-b border-emerald-100 bg-white/95 backdrop-blur-md sticky top-0 z-30 shadow-xs">
+      <header className="border-b border-emerald-100 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md sticky top-0 z-30 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 min-h-[80px] sm:min-h-[88px] flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <Link
@@ -378,13 +390,13 @@ export default function DataFarmPage() {
 
             <div className="min-w-0">
               <div className="flex items-center gap-2 mb-0.5">
-                <Link href="/bitpro" className="text-xs font-semibold text-slate-500 hover:text-emerald-700 transition-colors truncate">
+                <Link href="/bitpro" className="text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors truncate">
                   Bitpro
                 </Link>
-                <span className="text-slate-300">/</span>
-                <span className="text-xs font-bold text-emerald-700 whitespace-nowrap">Database Sebaran Farm</span>
+                <span className="text-slate-300 dark:text-slate-600">/</span>
+                <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">Database Sebaran Farm</span>
               </div>
-              <h1 className="text-base sm:text-xl font-bold text-slate-900 tracking-tight leading-tight truncate">
+              <h1 className="text-base sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight truncate">
                 Database &amp; Sebaran Farm Peternakan
               </h1>
             </div>
@@ -395,7 +407,7 @@ export default function DataFarmPage() {
               onClick={handleExportExcel}
               title="Export Excel"
               aria-label="Export Excel"
-              className="min-h-touch min-w-touch h-11 w-11 sm:w-auto sm:px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-bold flex items-center justify-center sm:gap-2 transition-all shadow-xs cursor-pointer"
+              className="min-h-touch min-w-touch h-11 w-11 sm:w-auto sm:px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-bold flex items-center justify-center sm:gap-2 transition-all shadow-xs cursor-pointer"
             >
               <Download size={16} strokeWidth={2.5} />
               <span className="hidden sm:inline">Export Excel</span>
@@ -415,17 +427,17 @@ export default function DataFarmPage() {
 
       {/* ── MAIN WORKSPACE ── */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-6">
-        {/* ── TOP COMMODITY TAB BAR ── */}
-        <div className="flex items-center gap-2 border-b border-slate-200 pb-px overflow-x-auto no-scrollbar scroll-smooth -mx-4 px-4 sm:mx-0 sm:px-0">
+        {/* ── TOP COMMODITY TAB BAR (Folder Tab Model Monev KTT) ── */}
+        <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-px overflow-x-auto no-scrollbar scroll-smooth -mx-4 px-4 sm:mx-0 sm:px-0">
           <button
             onClick={() => {
               setActiveCommodity('overview');
               setSearchTerm('');
             }}
-            className={`min-h-touch h-11 px-4 sm:px-5 rounded-t-2xl text-xs sm:text-sm font-bold border-t border-x transition-all shrink-0 whitespace-nowrap cursor-pointer flex items-center gap-2 ${
+            className={`min-h-touch h-11 px-4 sm:px-6 rounded-t-xl text-xs sm:text-sm font-bold border-t border-x transition-all shrink-0 whitespace-nowrap cursor-pointer flex items-center gap-2 ${
               activeCommodity === 'overview'
-                ? 'bg-white border-slate-200 text-emerald-700 border-b-white translate-y-px shadow-sm'
-                : 'border-transparent text-slate-500 hover:text-slate-900 bg-slate-100/70'
+                ? 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-emerald-700 dark:text-emerald-400 border-b-white dark:border-b-slate-900 translate-y-px shadow-xs'
+                : 'border-transparent text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white bg-slate-100/60 dark:bg-slate-800/40'
             }`}
           >
             <LayoutGrid size={16} />
@@ -444,17 +456,19 @@ export default function DataFarmPage() {
                   setActiveCommodity(key);
                   setSearchTerm('');
                 }}
-                className={`min-h-touch h-11 px-4 sm:px-5 rounded-t-2xl text-xs sm:text-sm font-bold border-t border-x transition-all shrink-0 whitespace-nowrap cursor-pointer flex items-center gap-2 ${
+                className={`min-h-touch h-11 px-4 sm:px-6 rounded-t-xl text-xs sm:text-sm font-bold border-t border-x transition-all shrink-0 whitespace-nowrap cursor-pointer flex items-center gap-2 ${
                   isActive
-                    ? 'bg-white border-slate-200 text-emerald-700 border-b-white translate-y-px shadow-sm'
-                    : 'border-transparent text-slate-500 hover:text-slate-900 bg-slate-100/70'
+                    ? 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-emerald-700 dark:text-emerald-400 border-b-white dark:border-b-slate-900 translate-y-px shadow-xs'
+                    : 'border-transparent text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white bg-slate-100/60 dark:bg-slate-800/40'
                 }`}
               >
                 <span className="text-sm leading-none">{meta.emoji}</span>
                 <span>{meta.title}</span>
                 <span
-                  className={`text-[11px] font-mono px-2 py-0.5 rounded-full font-bold ${
-                    isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200/80 text-slate-600'
+                  className={`text-[11px] font-mono px-2 py-0.5 rounded-full font-bold border transition-colors ${
+                    isActive
+                      ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
                   }`}
                 >
                   {stats.jumlahFarm}
@@ -509,6 +523,7 @@ export default function DataFarmPage() {
         gpsStatus={gpsStatus}
         currentDesaList={currentDesaList}
         handleSubmit={handleSubmit}
+        isSubmitting={isSubmitting}
       />
 
       {/* ── MODAL AUDIT LOGS ── */}

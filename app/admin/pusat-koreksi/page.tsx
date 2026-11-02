@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { usePageAuth } from '@/hooks/usePageAuth';
+import { showToast, showConfirm } from '@/components/common/CustomToast';
 import {
   ArrowLeft,
   CheckCircle,
@@ -32,6 +33,7 @@ import {
   Edit3,
   Link2,
 } from 'lucide-react';
+import NotificationBell from '@/components/common/NotificationBell';
 
 // Helper to format keys like "nama_kegiatan" to "Nama Kegiatan"
 const formatLabel = (key: string) => {
@@ -101,6 +103,8 @@ const formatModuleLabel = (moduleKey: string, submenuKey: string) => {
     nkv: 'Pembinaan NKV',
     'pakan-ternak': 'Pakan Ternak',
     'rph-tph-tpu': 'RPH / TPH / TPU',
+    'pasar-hewan': 'Pasar Hewan',
+    'hewan-kurban': 'Pemotongan Hewan Kurban',
     'inventaris-kendaraan': 'Inventaris Kendaraan',
     'anggota': 'Kelola Anggota',
     'petugas-wilayah': 'Wilayah Kerja Petugas',
@@ -351,7 +355,14 @@ export default function PusatKoreksiPage() {
       if (p === null) return;
       rejectReason = p;
     } else {
-      if (!confirm('Apakah Anda yakin menyetujui perubahan ini? Data akan langsung diperbarui ke database.')) return;
+      const ok = await showConfirm({
+        title: 'Konfirmasi Persetujuan',
+        message: 'Apakah Anda yakin menyetujui perubahan ini? Data akan langsung diperbarui ke database.',
+        confirmText: 'Ya, Setujui',
+        cancelText: 'Batal',
+        type: 'info',
+      });
+      if (!ok) return;
     }
 
     setProcessingId(id);
@@ -363,14 +374,14 @@ export default function PusatKoreksiPage() {
       });
       const json = await res.json();
       if (json.success) {
-        alert(json.message);
+        showToast.success(json.message);
         fetchRequests();
         fetchAuditLogs(1); // update logs after approval
       } else {
-        alert('Gagal: ' + json.error);
+        showToast.error('Gagal: ' + json.error);
       }
     } catch (e) {
-      alert('Terjadi kesalahan.');
+      showToast.error('Terjadi kesalahan.');
     } finally {
       setProcessingId(null);
     }
@@ -451,6 +462,8 @@ export default function PusatKoreksiPage() {
                 </span>
               )}
             </button>
+
+            <NotificationBell />
           </div>
         </div>
       </header>
@@ -676,16 +689,16 @@ export default function PusatKoreksiPage() {
                 ) : (
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="bg-slate-100/75 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 text-[11px] font-extrabold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
-                        <th className="py-3.5 px-4 whitespace-nowrap">Waktu & Tanggal Presisi</th>
-                        <th className="py-3.5 px-4 whitespace-nowrap">Pengguna / Petugas</th>
-                        <th className="py-3.5 px-4 whitespace-nowrap">Modul & Lokasi</th>
-                        <th className="py-3.5 px-4 whitespace-nowrap">Jenis Aksi</th>
-                        <th className="py-3.5 px-4 min-w-[260px]">Rincian Perubahan Data</th>
+                      <tr className="bg-slate-100/90 dark:bg-slate-700/50 border-b border-slate-300 dark:border-slate-700 text-[11px] font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                        <th className="py-3.5 px-4 whitespace-nowrap border-r border-slate-300 dark:border-slate-700">Waktu &amp; Tanggal Presisi</th>
+                        <th className="py-3.5 px-4 whitespace-nowrap border-r border-slate-300 dark:border-slate-700">Pengguna / Petugas</th>
+                        <th className="py-3.5 px-4 whitespace-nowrap border-r border-slate-300 dark:border-slate-700">Modul &amp; Lokasi</th>
+                        <th className="py-3.5 px-4 whitespace-nowrap border-r border-slate-300 dark:border-slate-700">Jenis Aksi</th>
+                        <th className="py-3.5 px-4 min-w-[260px] border-r border-slate-300 dark:border-slate-700">Rincian Perubahan Data</th>
                         <th className="py-3.5 px-4 whitespace-nowrap text-center">Detail</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-xs">
+                    <tbody className="divide-y divide-slate-300 dark:divide-slate-700 text-xs">
                       {logs.map((log) => {
                         const dt = formatDateTime(log.timestamp);
                         const mod = formatModuleLabel(log.module, log.submenu);
@@ -693,15 +706,15 @@ export default function PusatKoreksiPage() {
 
                         let parsedDetails: any = null;
                         try {
-                          parsedDetails = typeof log.details === 'string' ? JSON.parse(log.details) : log.details;
+                           parsedDetails = typeof log.details === 'string' ? JSON.parse(log.details) : log.details;
                         } catch {
                           parsedDetails = log.details;
                         }
 
                         return (
-                          <tr key={log.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-750 transition-colors">
+                          <tr key={log.id} className="odd:bg-white even:bg-slate-100 dark:odd:bg-slate-900/60 dark:even:bg-slate-800/50 hover:bg-blue-50/60 dark:hover:bg-slate-750 transition-colors">
                             {/* Waktu & Tanggal Presisi (jam, menit, detik) */}
-                            <td className="py-3.5 px-4 align-top">
+                            <td className="py-3.5 px-4 align-top border-r border-slate-300 dark:border-slate-700">
                               <div className="font-extrabold text-slate-800 dark:text-slate-100">
                                 {dt.fullDate}
                               </div>
@@ -713,7 +726,7 @@ export default function PusatKoreksiPage() {
                             </td>
 
                             {/* Pengguna / Petugas */}
-                            <td className="py-3.5 px-4 align-top">
+                            <td className="py-3.5 px-4 align-top border-r border-slate-300 dark:border-slate-700">
                               <div className="flex items-center gap-2">
                                 <div className="w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-bold text-xs flex items-center justify-center border border-blue-200 dark:border-blue-800 shrink-0">
                                   {(log.user_name || 'S')[0]?.toUpperCase()}
@@ -728,7 +741,7 @@ export default function PusatKoreksiPage() {
                             </td>
 
                             {/* Modul & Lokasi */}
-                            <td className="py-3.5 px-4 align-top">
+                            <td className="py-3.5 px-4 align-top border-r border-slate-300 dark:border-slate-700">
                               <div className="font-bold text-slate-800 dark:text-slate-200">
                                 {mod.module}
                               </div>
@@ -743,7 +756,7 @@ export default function PusatKoreksiPage() {
                             </td>
 
                             {/* Jenis Aksi */}
-                            <td className="py-3.5 px-4 align-top">
+                            <td className="py-3.5 px-4 align-top border-r border-slate-300 dark:border-slate-700">
                               <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-extrabold border ${act.badgeClass}`}>
                                 <span className={`w-1.5 h-1.5 rounded-full ${act.dot}`}></span>
                                 {act.label}
@@ -751,7 +764,7 @@ export default function PusatKoreksiPage() {
                             </td>
 
                             {/* Rincian Perubahan Preview */}
-                            <td className="py-3.5 px-4 align-top">
+                            <td className="py-3.5 px-4 align-top border-r border-slate-300 dark:border-slate-700">
                               {parsedDetails && typeof parsedDetails === 'object' ? (
                                 <div className="space-y-1 max-w-sm">
                                   {/* Preview key-value pairs */}
@@ -877,16 +890,16 @@ export default function PusatKoreksiPage() {
               ) : (
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
-                    <tr className="bg-slate-100/75 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 text-[11px] font-extrabold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
-                      <th className="p-4 whitespace-nowrap">Waktu Pengajuan</th>
-                      <th className="p-4 whitespace-nowrap">Petugas Pengaju</th>
-                      <th className="p-4 whitespace-nowrap">Modul & Lokasi</th>
-                      <th className="p-4 min-w-[260px]">Detail Usulan Perubahan</th>
-                      <th className="p-4 whitespace-nowrap">Alasan Koreksi</th>
+                    <tr className="bg-slate-100/90 dark:bg-slate-700/50 border-b border-slate-300 dark:border-slate-700 text-[11px] font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                      <th className="p-4 whitespace-nowrap border-r border-slate-300 dark:border-slate-700">Waktu Pengajuan</th>
+                      <th className="p-4 whitespace-nowrap border-r border-slate-300 dark:border-slate-700">Petugas Pengaju</th>
+                      <th className="p-4 whitespace-nowrap border-r border-slate-300 dark:border-slate-700">Modul &amp; Lokasi</th>
+                      <th className="p-4 min-w-[260px] border-r border-slate-300 dark:border-slate-700">Detail Usulan Perubahan</th>
+                      <th className="p-4 whitespace-nowrap border-r border-slate-300 dark:border-slate-700">Alasan Koreksi</th>
                       <th className="p-4 whitespace-nowrap text-center">Keputusan</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
+                  <tbody className="divide-y divide-slate-300 dark:divide-slate-700">
                     {requests.map((req) => {
                       let parsed = {};
                       try {
@@ -897,28 +910,28 @@ export default function PusatKoreksiPage() {
                       const mod = formatModuleLabel(req.module, req.submenu);
 
                       return (
-                        <tr key={req.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-750 transition-colors">
-                          <td className="p-4 align-top">
+                        <tr key={req.id} className="odd:bg-white even:bg-slate-100 dark:odd:bg-slate-900/60 dark:even:bg-slate-800/50 hover:bg-blue-50/60 dark:hover:bg-slate-750 transition-colors">
+                          <td className="p-4 align-top border-r border-slate-300 dark:border-slate-700">
                             <div className="font-bold text-slate-800 dark:text-slate-100">{reqDate.fullDate}</div>
                             <div className="text-[11px] text-slate-500 font-mono mt-0.5">{reqDate.time}</div>
                           </td>
 
-                          <td className="p-4 align-top">
+                          <td className="p-4 align-top border-r border-slate-300 dark:border-slate-700">
                             <div className="font-bold text-blue-700 dark:text-blue-400 text-sm">{req.requested_by}</div>
                             <span className="text-[10px] text-slate-400">Petugas Lapangan</span>
                           </td>
 
-                          <td className="p-4 align-top">
+                          <td className="p-4 align-top border-r border-slate-300 dark:border-slate-700">
                             <span className="px-2.5 py-1 rounded-md bg-purple-100 dark:bg-purple-950/50 text-purple-800 dark:text-purple-300 text-[10px] font-bold uppercase tracking-wider inline-block border border-purple-200 dark:border-purple-800">
                               {mod.module} / {mod.submenu}
                             </span>
                             <div className="text-[10px] font-mono text-slate-400 mt-1">Record ID: {req.record_id}</div>
                           </td>
 
-                          <td className="p-4 align-top">
+                          <td className="p-4 align-top border-r border-slate-300 dark:border-slate-700">
                             <div className="space-y-1.5">
                               {Object.entries(parsed).map(([key, val]) => (
-                                <div key={key} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-2.5 rounded-xl shadow-2xs">
+                                <div key={key} className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 p-2.5 rounded-xl shadow-2xs">
                                   <span className="block text-[10px] font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-0.5">
                                     {formatLabel(key)}
                                   </span>
@@ -930,7 +943,7 @@ export default function PusatKoreksiPage() {
                             </div>
                           </td>
 
-                          <td className="p-4 align-top">
+                          <td className="p-4 align-top border-r border-slate-300 dark:border-slate-700">
                             <div className="text-xs text-slate-700 dark:text-slate-300 max-w-[200px] leading-relaxed bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 p-2.5 rounded-xl">
                               {req.reason || 'Tidak ada catatan'}
                             </div>
@@ -1111,18 +1124,18 @@ export default function PusatKoreksiPage() {
                   }
 
                   return (
-                    <div className="border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden">
+                    <div className="border border-slate-300 dark:border-slate-700 rounded-2xl overflow-hidden">
                       <table className="w-full text-left border-collapse text-xs">
                         <thead>
-                          <tr className="bg-slate-100/75 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 text-[11px] font-extrabold text-slate-600 dark:text-slate-300 uppercase">
-                            <th className="py-2.5 px-4 w-1/3">Nama Kolom / Data</th>
+                          <tr className="bg-slate-100/90 dark:bg-slate-700/50 border-b border-slate-300 dark:border-slate-700 text-[11px] font-extrabold text-slate-700 dark:text-slate-300 uppercase">
+                            <th className="py-2.5 px-4 w-1/3 border-r border-slate-300 dark:border-slate-700">Nama Kolom / Data</th>
                             <th className="py-2.5 px-4">Nilai Data</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
+                        <tbody className="divide-y divide-slate-300 dark:divide-slate-700">
                           {Object.entries(parsed).map(([key, val]) => (
-                            <tr key={key} className="hover:bg-slate-50/60 dark:hover:bg-slate-750">
-                              <td className="py-2.5 px-4 font-bold text-slate-700 dark:text-slate-300 align-top">
+                            <tr key={key} className="odd:bg-white even:bg-slate-100 dark:odd:bg-slate-900/60 dark:even:bg-slate-800/50 hover:bg-blue-50/60 dark:hover:bg-slate-750 transition-colors">
+                              <td className="py-2.5 px-4 font-bold text-slate-700 dark:text-slate-300 align-top border-r border-slate-300 dark:border-slate-700">
                                 {formatLabel(key)}
                                 <span className="block text-[10px] font-mono text-slate-400 font-normal">{key}</span>
                               </td>

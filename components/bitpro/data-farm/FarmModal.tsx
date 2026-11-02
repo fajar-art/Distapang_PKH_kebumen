@@ -5,6 +5,7 @@ import {
   MapPin,
   Compass,
   CheckCircle2,
+  Loader2,
 } from 'lucide-react';
 import {
   CommodityKey,
@@ -25,6 +26,7 @@ interface FarmModalProps {
   gpsStatus: string | null;
   currentDesaList: string[];
   handleSubmit: (e: React.FormEvent<HTMLFormElement>) => Promise<void>;
+  isSubmitting?: boolean;
 }
 
 export default function FarmModal({
@@ -40,6 +42,7 @@ export default function FarmModal({
   gpsStatus,
   currentDesaList,
   handleSubmit,
+  isSubmitting = false,
 }: FarmModalProps) {
   if (!isModalOpen) return null;
 
@@ -82,7 +85,9 @@ export default function FarmModal({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Nama Badan Usaha / Perusahaan</label>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Nama Badan Usaha / Perusahaan <span className="text-[11px] text-slate-400 font-normal">(opsional)</span>
+                </label>
                 <input
                   type="text"
                   name="nama_badan_usaha"
@@ -95,7 +100,7 @@ export default function FarmModal({
 
               <div>
                 <label className="block font-bold text-slate-700 mb-1">
-                  Nama Unit Farm / Nama Peternak <span className="text-red-500">*</span>
+                  Nama Unit Farm / Nama Peternak
                 </label>
                 <input
                   type="text"
@@ -112,7 +117,9 @@ export default function FarmModal({
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Status Kepemilikan / Kemitraan</label>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Status Kepemilikan / Kemitraan <span className="text-[11px] text-slate-400 font-normal">(opsional)</span>
+                </label>
                 <select
                   name="mandiri_kemitraan"
                   value={formValues.mandiri_kemitraan || formValues.status_kepemilikan || 'Kemitraan'}
@@ -130,7 +137,9 @@ export default function FarmModal({
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">No. Telepon / HP</label>
+                <label className="block font-bold text-slate-700 mb-1">
+                  No. Telepon / HP <span className="text-[11px] text-slate-400 font-normal">(opsional)</span>
+                </label>
                 <input
                   type="text"
                   name="telp_hp"
@@ -172,7 +181,7 @@ export default function FarmModal({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
                 <label className="block font-bold text-slate-700 mb-1">
-                  Kecamatan <span className="text-red-500">*</span>
+                  Kecamatan
                 </label>
                 <select
                   name="kecamatan"
@@ -191,7 +200,7 @@ export default function FarmModal({
 
               <div>
                 <label className="block font-bold text-slate-700 mb-1">
-                  Desa / Kelurahan <span className="text-red-500">*</span>
+                  Desa / Kelurahan
                 </label>
                 <select
                   name="desa"
@@ -210,7 +219,7 @@ export default function FarmModal({
 
               <div>
                 <label className="block font-bold text-slate-700 mb-1">
-                  Lintang (*Latitude*) — Otomatis / Manual
+                  Lintang (Latitude) — Otomatis / Manual <span className="text-[11px] text-slate-400 font-normal">(opsional)</span>
                 </label>
                 <input
                   type="text"
@@ -224,7 +233,7 @@ export default function FarmModal({
 
               <div>
                 <label className="block font-bold text-slate-700 mb-1">
-                  Bujur (*Longitude*) — Otomatis / Manual
+                  Bujur (Longitude) — Otomatis / Manual <span className="text-[11px] text-slate-400 font-normal">(opsional)</span>
                 </label>
                 <input
                   type="text"
@@ -237,7 +246,9 @@ export default function FarmModal({
               </div>
 
               <div className="sm:col-span-2">
-                <label className="block font-bold text-slate-700 mb-1">Alamat Lengkap / Dusun / RT-RW</label>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Alamat Lengkap / Dusun / RT-RW <span className="text-[11px] text-slate-400 font-normal">(opsional)</span>
+                </label>
                 <input
                   type="text"
                   name="alamat"
@@ -259,7 +270,9 @@ export default function FarmModal({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Kapasitas Kandang (Ekor/Tahun)</label>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Kapasitas Kandang (Ekor/Tahun) <span className="text-[11px] text-slate-400 font-normal">(opsional)</span>
+                </label>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -272,7 +285,9 @@ export default function FarmModal({
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Jumlah Populasi Aktif (Ekor)</label>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Jumlah Populasi Aktif (Ekor) <span className="text-[11px] text-slate-400 font-normal">(opsional)</span>
+                </label>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -291,7 +306,7 @@ export default function FarmModal({
                 <>
                   <div>
                     <label className="block font-bold text-slate-700 mb-1">
-                      Jumlah Produksi Siap Potong (Ekor/Tahun)
+                      Jumlah Produksi Siap Potong (Ekor/Tahun) <span className="text-[11px] text-slate-400 font-normal">(opsional)</span>
                     </label>
                     <input
                       type="text"
@@ -304,7 +319,9 @@ export default function FarmModal({
                     />
                   </div>
                   <div>
-                    <label className="block font-bold text-slate-700 mb-1">Bobot Rata-rata Panen (Kg/Ekor)</label>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      Bobot Rata-rata Panen (Kg/Ekor) <span className="text-[11px] text-slate-400 font-normal">(opsional)</span>
+                    </label>
                     <input
                       type="text"
                       name="bobot_rata2_panen"
@@ -320,7 +337,9 @@ export default function FarmModal({
               {targetCategory === 'petelur' && (
                 <>
                   <div>
-                    <label className="block font-bold text-slate-700 mb-1">Produksi Telur Konsumsi (Kg/Tahun)</label>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      Produksi Telur Konsumsi (Kg/Tahun) <span className="text-[11px] text-slate-400 font-normal">(opsional)</span>
+                    </label>
                     <input
                       type="text"
                       inputMode="numeric"
@@ -332,7 +351,9 @@ export default function FarmModal({
                     />
                   </div>
                   <div>
-                    <label className="block font-bold text-slate-700 mb-1">Konsumsi Pakan (Gram/Ekor/Hari)</label>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      Konsumsi Pakan (Gram/Ekor/Hari) <span className="text-[11px] text-slate-400 font-normal">(opsional)</span>
+                    </label>
                     <input
                       type="text"
                       inputMode="numeric"
@@ -347,7 +368,9 @@ export default function FarmModal({
               )}
 
               <div className="sm:col-span-2">
-                <label className="block font-bold text-slate-700 mb-1">Catatan Siklus / Keterangan Lain</label>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Catatan Siklus / Keterangan Lain <span className="text-[11px] text-slate-400 font-normal">(opsional)</span>
+                </label>
                 <input
                   type="text"
                   name="catatan"
@@ -372,9 +395,17 @@ export default function FarmModal({
             </button>
             <button
               type="submit"
-              className="min-h-touch h-11 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold active:scale-95 transition-all shadow-xs cursor-pointer"
+              disabled={isSubmitting}
+              className="min-h-touch h-11 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold active:scale-95 transition-all shadow-xs cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Simpan Data Farm
+              {isSubmitting ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>Menyimpan...</span>
+                </>
+              ) : (
+                'Simpan Data Farm'
+              )}
             </button>
           </div>
         </form>

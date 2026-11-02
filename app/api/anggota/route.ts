@@ -3,6 +3,7 @@ import { pool } from '@/lib/db';
 import {
   DEFAULT_FULL_PERMISSIONS,
   DEFAULT_VIEW_ONLY_PERMISSIONS,
+  getDefaultPermissionsForRole,
 } from '@/lib/permissions';
 import { hashPassword } from '@/lib/password';
 import { requireAdmin } from '@/lib/session';
@@ -77,7 +78,10 @@ const INITIAL_FALLBACK_MEMBERS = [
   },
 ];
 
+let hasEnsuredTable = false;
+
 async function ensureTable() {
+  if (hasEnsuredTable) return;
   try {
     // 1. Pastikan tabel anggota_users ada
     await pool.execute(`
@@ -117,55 +121,22 @@ async function ensureTable() {
       }
     } catch {}
 
-    // 4. Cek apakah tabel anggota_users masih kosong (hanya ada admin atau kosong sama sekali)
-    const [countRows]: any = await pool.execute(`SELECT COUNT(*) as total FROM anggota_users`);
-    if (countRows && countRows[0]?.total <= 1) {
-      for (const m of INITIAL_FALLBACK_MEMBERS) {
-        try {
-          await pool.execute(
-            `INSERT IGNORE INTO anggota_users (nama, nip_username, password, role, status, permissions) VALUES (?, ?, ?, ?, ?, ?)`,
-            [m.nama, m.nip_username, m.password, m.role, m.status, m.permissions]
-          );
-        } catch {}
-      }
-    }
-
-    // 5. Sinkronkan otomatis akun-akun petugas lama dari tabel `users` (jika ada) ke `anggota_users`
+    // 4. Isi seed HANYA jika tabel anggota_users benar-benar kosong sama sekali (total === 0)
     try {
-      const [legacyUsers]: any = await pool.execute(`SELECT * FROM users`);
-      if (Array.isArray(legacyUsers) && legacyUsers.length > 0) {
-        for (const lu of legacyUsers) {
-          const username = (lu.email || lu.username || '').trim();
-          if (!username) continue;
-
-          const [exists]: any = await pool.execute(
-            `SELECT id FROM anggota_users WHERE LOWER(nip_username) = LOWER(?) LIMIT 1`,
-            [username]
-          );
-
-          if (!exists || exists.length === 0) {
-            const nama = lu.nama || lu.name || username;
-            const isAdm = lu.role === 'admin' || username.toLowerCase().includes('admin');
-            const role = isAdm
-              ? 'Administrator'
-              : (lu.role === 'enumerator' ? 'Enumerator' : 'Petugas Teknis');
-            const perms = isAdm ? DEFAULT_FULL_PERMISSIONS : DEFAULT_VIEW_ONLY_PERMISSIONS;
-
+      const [countRows]: any = await pool.execute(`SELECT COUNT(*) as total FROM anggota_users`);
+      if (countRows && countRows[0]?.total === 0) {
+        for (const m of INITIAL_FALLBACK_MEMBERS) {
+          try {
             await pool.execute(
-              `INSERT INTO anggota_users (nama, nip_username, password, role, status, permissions) VALUES (?, ?, ?, ?, ?, ?)`,
-              [
-                nama,
-                username,
-                lu.password || hashPassword('password123'),
-                role,
-                'Aktif',
-                JSON.stringify(perms),
-              ]
+              `INSERT IGNORE INTO anggota_users (nama, nip_username, password, role, status, permissions) VALUES (?, ?, ?, ?, ?, ?)`,
+              [m.nama, m.nip_username, m.password, m.role, m.status, m.permissions]
             );
-          }
+          } catch {}
         }
       }
     } catch {}
+
+    hasEnsuredTable = true;
   } catch (err) {
     // Database connection may not be ready, handle silently
   }
@@ -181,6 +152,7 @@ export async function GET(req: Request) {
 
     // Coba ambil data lengkap beserta wilayah kerja dari petugas_ib
     try {
+      // Subquery petugas_ib agar tiap user_id hanya mengambil 1 data teratas dan tidak melipatgandakan baris
       const [rows]: any = await pool.query(
         `SELECT 
           u.id, u.nama, u.nip_username, u.role, u.status, u.permissions, u.created_at, u.updated_at,
@@ -190,16 +162,29 @@ export async function GET(req: Request) {
           p.wilayah_kerja_tambahan AS puskeswan_tambahan,
           p.wt1, p.wt2, p.wt3, p.wt4, p.wt5
         FROM anggota_users u
-        LEFT JOIN petugas_ib p ON (p.id_user = u.id OR LOWER(TRIM(p.nama_petugas)) = LOWER(TRIM(u.nama)))
+        LEFT JOIN (
+          SELECT * FROM petugas_ib 
+          WHERE id_kompetensi IN (
+            SELECT MIN(id_kompetensi) FROM petugas_ib WHERE id_user IS NOT NULL GROUP BY id_user
+          )
+        ) p ON p.id_user = u.id
         LEFT JOIN wilayah_binaan wb_utama ON p.id_wilayah_binaan = wb_utama.id_wilayah_binaan
         ORDER BY u.id ASC`
       );
 
       if (Array.isArray(rows) && rows.length > 0) {
-        const parsed = rows.map((r: any) => ({
-          ...r,
-          permissions: typeof r.permissions === 'string' ? JSON.parse(r.permissions) : r.permissions,
-        }));
+        // Jaminan deduplikasi di layer API: 1 user ID = 1 objek
+        const userMap = new Map<number, any>();
+        rows.forEach((r: any) => {
+          if (!userMap.has(r.id)) {
+            userMap.set(r.id, {
+              ...r,
+              permissions: typeof r.permissions === 'string' ? JSON.parse(r.permissions) : r.permissions,
+            });
+          }
+        });
+
+        const parsed = Array.from(userMap.values());
         return NextResponse.json(parsed, {
           headers: {
             'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
@@ -327,8 +312,11 @@ export async function POST(req: Request) {
     }
 
     const hashedPassword = hashPassword(password);
-    const permStr = typeof permissions === 'object' ? JSON.stringify(permissions) : JSON.stringify(DEFAULT_FULL_PERMISSIONS);
     const userRole = role || 'Petugas Lapangan';
+    const permStr =
+      typeof permissions === 'object' && permissions !== null
+        ? JSON.stringify(permissions)
+        : JSON.stringify(getDefaultPermissionsForRole(userRole));
     const userStatus = status || 'Aktif';
 
     try {
@@ -508,6 +496,11 @@ export async function DELETE(req: Request) {
     try {
       await ensureTable();
       await pool.execute(`DELETE FROM anggota_users WHERE id = ?`, [id]);
+
+      // Unlink relasi di petugas_ib jika ada
+      try {
+        await pool.execute(`UPDATE petugas_ib SET id_user = NULL WHERE id_user = ?`, [id]);
+      } catch {}
 
       await logActivity({
         module: 'admin',

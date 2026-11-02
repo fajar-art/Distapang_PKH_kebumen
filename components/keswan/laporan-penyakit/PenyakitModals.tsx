@@ -91,7 +91,7 @@ export default function PenyakitModals({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block mb-1 font-bold text-slate-700">
-                    Kecamatan <span className="text-red-500">*</span>
+                    Kecamatan
                   </label>
                   <select
                     value={formValues.kecamatan_id}
@@ -117,7 +117,7 @@ export default function PenyakitModals({
 
                 <div>
                   <label className="block mb-1 font-bold text-slate-700">
-                    Diagnosa Penyakit <span className="text-red-500">*</span>
+                    Diagnosa Penyakit
                   </label>
                   <select
                     value={formValues.diagnosa_nama}
@@ -146,7 +146,7 @@ export default function PenyakitModals({
 
               <div>
                 <label className="block mb-1 font-bold text-slate-700">
-                  Jumlah Kasus (Ekor) <span className="text-red-500">*</span>
+                  Jumlah Kasus (Ekor)
                 </label>
                 <input
                   type="number"
@@ -162,7 +162,9 @@ export default function PenyakitModals({
               </div>
 
               <div>
-                <label className="block mb-1 font-bold text-slate-700">Keterangan Tambahan</label>
+                <label className="block mb-1 font-bold text-slate-700">
+                  Keterangan Tambahan <span className="text-[11px] text-slate-400 font-normal">(opsional)</span>
+                </label>
                 <textarea
                   rows={2}
                   placeholder="Catatan penanganan / lokasi desa..."
@@ -214,7 +216,7 @@ export default function PenyakitModals({
             <form onSubmit={handleAddYearSubmit} className="space-y-4 text-xs font-semibold text-slate-700">
               <div>
                 <label className="block mb-1 font-bold text-slate-700">
-                  Tahun Baru yang Ditambahkan <span className="text-red-500">*</span>
+                  Tahun Baru yang Ditambahkan
                 </label>
                 <input
                   type="number"

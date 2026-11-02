@@ -76,24 +76,23 @@ export function usePageAuth(
 
       // Set info user & hak akses
       let isUserAdmin = false;
-      let userCanCreate = false;
 
-      const role = localUser.role || 'Petugas Teknis';
+      const role = localUser.role || 'Petugas Lapangan';
+      const roleLower = role.toLowerCase();
       setUserName(localUser.nama || localUser.nip_username);
       setUserRole(role);
-      isUserAdmin = role === 'Administrator';
+      isUserAdmin = roleLower === 'administrator' || roleLower === 'admin' || roleLower === 'superadmin';
 
-      // Hak akses tambah data: (Admin & mode edit) ATAU mode izin edit
+      // Mode izin submenu untuk user ini (berdasarkan perizinan spesifiknya di matriks hak akses)
       const mode = getSubmenuPermissionMode(moduleKey, submenuKey);
-      userCanCreate = (isUserAdmin && mode === 'edit') || mode === 'edit';
+
+      // Hak akses: Administrator selalu bisa edit, atau akun memiliki mode 'edit' pada submenu ini
+      const hasEditPermission = isUserAdmin || mode === 'edit';
 
       setIsAdmin(isUserAdmin);
-      setCanCreate(userCanCreate);
-      
-      // Administrator bisa Edit dan Delete JIKA mode-nya adalah 'edit' (bukan pelihat)
-      const adminCanEditDelete = isUserAdmin && mode === 'edit';
-      setCanEdit(adminCanEditDelete);
-      setCanDelete(adminCanEditDelete);
+      setCanCreate(hasEditPermission);
+      setCanEdit(hasEditPermission);
+      setCanDelete(hasEditPermission);
 
       setIsReady(true);
     };

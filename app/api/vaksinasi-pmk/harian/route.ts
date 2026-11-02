@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { getSessionFromRequest } from '@/lib/session';
 import { logActivity } from '@/lib/auditLog';
+import { ensureVaksinasiSchema } from '@/lib/vaksinasiDb';
 
 const BULAN_NAMES = [
   '',
@@ -34,23 +35,57 @@ const BULAN_TO_NUM: Record<string, string> = {
   desember: '12',
 };
 
+const PUSKESWAN_ID_MAP: Record<string, number> = {
+  mirit: 1,
+  klirong: 2,
+  gombong: 3,
+  buayan: 4,
+  alian: 5,
+  prembun: 6,
+  kebumen: 7,
+  karanganyar: 8,
+};
+
+const PUSKESWAN_ID_TO_NAME: Record<number, string> = {
+  1: 'MIRIT',
+  2: 'KLIRONG',
+  3: 'GOMBONG',
+  4: 'BUAYAN',
+  5: 'ALIAN',
+  6: 'PREMBUN',
+  7: 'KEBUMEN',
+  8: 'KARANGANYAR',
+};
+
 // GET → ambil data harian dari tabel `vaksinasi`, difilter tahun & bulan
 export async function GET(request: Request) {
   try {
+    await ensureVaksinasiSchema();
     const { searchParams } = new URL(request.url);
     const bulan = searchParams.get('bulan');
-    const tahun = searchParams.get('tahun') || '2026';
+    const tahun = searchParams.get('tahun') || String(new Date().getFullYear());
 
-    let query = 'SELECT id_vaksinasi, puskeswan, tanggal, bulan, tahun, jumlah FROM vaksinasi WHERE tahun = ?';
+    let query = `
+      SELECT 
+        v.id_vaksinasi, 
+        v.id_puskeswan,
+        v.nama,
+        v.tanggal, 
+        v.bulan, 
+        v.tahun, 
+        v.jumlah 
+      FROM vaksinasi v
+      WHERE v.tahun = ?
+    `;
     const params: any[] = [String(tahun)];
 
     if (bulan) {
       const monthNum = parseInt(bulan, 10);
       const monthName = BULAN_NAMES[monthNum] || bulan;
-      query += ' AND (LOWER(bulan) = LOWER(?) OR bulan = ?)';
+      query += ' AND (LOWER(v.bulan) = LOWER(?) OR v.bulan = ?)';
       params.push(monthName, String(monthNum));
     }
-    query += ' ORDER BY puskeswan ASC, id_vaksinasi ASC';
+    query += ' ORDER BY v.id_puskeswan ASC, v.id_vaksinasi ASC';
 
     const [rows]: any = await pool.query(query, params);
 
@@ -68,7 +103,8 @@ export async function GET(request: Request) {
         dateStr = `${yy}-${mm}-${dd}`;
       }
 
-      const puskClean = (r.puskeswan || '')
+      const puskNameFromId = r.id_puskeswan ? PUSKESWAN_ID_TO_NAME[r.id_puskeswan] : '';
+      const puskClean = (puskNameFromId || r.nama || '')
         .toUpperCase()
         .replace(/^PUSKESWAN\s+/i, '')
         .trim();
@@ -90,6 +126,7 @@ export async function GET(request: Request) {
 // POST → tambah/update input harian langsung ke tabel `vaksinasi`
 export async function POST(request: Request) {
   try {
+    await ensureVaksinasiSchema();
     const { puskeswan, tanggal, jumlah } = await request.json();
 
     if (!puskeswan || !tanggal) {
@@ -112,15 +149,27 @@ export async function POST(request: Request) {
     const cleanPusk = puskeswan.toUpperCase().replace(/^PUSKESWAN\s+/i, '').trim();
     const standardPuskName = `Puskeswan ${cleanPusk.charAt(0).toUpperCase() + cleanPusk.slice(1).toLowerCase()}`;
 
-    // Cek record eksis di tabel vaksinasi
+    // Resolve id_puskeswan berdasarkan nama puskeswan
+    let idPuskeswan = PUSKESWAN_ID_MAP[cleanPusk.toLowerCase()] || null;
+    if (!idPuskeswan) {
+      const [puskWb]: any = await pool.query(
+        `SELECT DISTINCT id_puskeswan FROM wilayah_binaan WHERE LOWER(nama_puskeswan) LIKE LOWER(?) LIMIT 1`,
+        [`%${cleanPusk}%`]
+      );
+      if (puskWb && puskWb.length > 0) {
+        idPuskeswan = puskWb[0].id_puskeswan;
+      }
+    }
+
+    // Cek record eksis di tabel vaksinasi berdasarkan id_puskeswan (atau fallback nama), tahun, bulan, tanggal
     const [existingRows]: any = await pool.query(
       `SELECT id_vaksinasi, jumlah FROM vaksinasi 
-       WHERE (puskeswan = ? OR puskeswan = ? OR UPPER(TRIM(REPLACE(puskeswan, 'Puskeswan ', ''))) = ?)
+       WHERE (id_puskeswan = ? OR nama = ?)
          AND tahun = ? 
          AND (LOWER(bulan) = LOWER(?) OR bulan = ?)
          AND (tanggal = ? OR tanggal = ?)
        LIMIT 1`,
-      [standardPuskName, puskeswan, cleanPusk, tahunStr, bulanName, String(bulanIndex), dayStr, tanggal]
+      [idPuskeswan, standardPuskName, tahunStr, bulanName, String(bulanIndex), dayStr, tanggal]
     );
 
     const session = await getSessionFromRequest(request as any);
@@ -155,14 +204,8 @@ export async function POST(request: Request) {
         [jumlahVal, recordId]
       );
     } else {
-      const [puskWb]: any = await pool.query(
-        `SELECT DISTINCT id_puskeswan FROM wilayah_binaan WHERE LOWER(nama_puskeswan) LIKE LOWER(?) LIMIT 1`,
-        [`%${cleanPusk}%`]
-      );
-      const idPuskeswan = puskWb && puskWb.length > 0 ? puskWb[0].id_puskeswan : null;
-
       const [resInsert]: any = await pool.execute(
-        `INSERT INTO vaksinasi (id_puskeswan, puskeswan, tanggal, bulan, tahun, id_vaksin, jumlah)
+        `INSERT INTO vaksinasi (id_puskeswan, nama, tanggal, bulan, tahun, id_vaksin, jumlah)
          VALUES (?, ?, ?, ?, ?, 1, ?)`,
         [idPuskeswan, standardPuskName, dayStr, bulanName, tahunStr, jumlahVal]
       );

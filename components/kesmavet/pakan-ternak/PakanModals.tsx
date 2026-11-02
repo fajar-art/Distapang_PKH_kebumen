@@ -187,7 +187,7 @@ export default function PakanModals({
             <form onSubmit={handleSaveEdit} className="space-y-4 text-xs">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Potensi Pakan (kg) <span className="text-red-500">*</span>
+                  Potensi Pakan (kg)
                 </label>
                 <input
                   type="number"
@@ -202,7 +202,7 @@ export default function PakanModals({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Kapasitas Tampung (ekor) <span className="text-red-500">*</span>
+                    Kapasitas Tampung (ekor)
                   </label>
                   <input
                     type="number"
@@ -218,7 +218,7 @@ export default function PakanModals({
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Jumlah Ternak Sekarang (ST) <span className="text-red-500">*</span>
+                    Jumlah Ternak Sekarang (ST)
                   </label>
                   <input
                     type="number"
@@ -308,7 +308,7 @@ export default function PakanModals({
             <form onSubmit={handleAddYearSubmit} className="space-y-4 text-xs font-semibold text-slate-700">
               <div>
                 <label className="block mb-1">
-                  Tahun Baru yang Ditambahkan <span className="text-red-500">*</span>
+                  Tahun Baru yang Ditambahkan
                 </label>
                 <input
                   type="number"
@@ -323,7 +323,7 @@ export default function PakanModals({
               </div>
 
               <div>
-                <label className="block mb-1">Salin Baseline / Format Data Dari Tahun:</label>
+                <label className="block mb-1">Salin Baseline / Format Data Dari Tahun <span className="text-[11px] text-slate-400 font-normal">(opsional)</span>:</label>
                 <select
                   value={copyFromYearInput}
                   onChange={(e) => setCopyFromYearInput(Number(e.target.value))}

@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 
 export interface UserAreaAccess {
   isAdmin: boolean;
+  isUnrestricted: boolean;
   allowedKecamatan: string[]; // Uppercase, e.g. ['BUAYAN', 'ROWOKELE']
   allowedPuskeswan: string[]; // e.g. ['Puskeswan Buayan']
   allowedPuskeswanIds: number[];
@@ -45,6 +46,7 @@ export async function getUserAreaAccess(session: SessionPayload | null): Promise
   if (!session) {
     return {
       isAdmin: false,
+      isUnrestricted: false,
       allowedKecamatan: [],
       allowedPuskeswan: [],
       allowedPuskeswanIds: [],
@@ -56,6 +58,7 @@ export async function getUserAreaAccess(session: SessionPayload | null): Promise
   if (role === 'administrator' || role === 'admin' || role === 'superadmin' || role.includes('admin')) {
     return {
       isAdmin: true,
+      isUnrestricted: true,
       allowedKecamatan: [], // Empty means ALL for admin
       allowedPuskeswan: [],
       allowedPuskeswanIds: [],
@@ -204,10 +207,11 @@ export async function getUserAreaAccess(session: SessionPayload | null): Promise
       }
     }
 
-    // Jika setelah dicek user memiliki wewenang wilayah binaan atau puskeswan
+    // Jika setelah dicek user memiliki wewenang wilayah binaan atau puskeswan spesifik
     if (allowedPuskeswanSet.size > 0 || allowedKecamatanSet.size > 0) {
       return {
         isAdmin: false,
+        isUnrestricted: false,
         allowedKecamatan: Array.from(allowedKecamatanSet),
         allowedPuskeswan: Array.from(allowedPuskeswanSet),
         allowedPuskeswanIds: Array.from(allowedPuskeswanIdSet),
@@ -217,21 +221,28 @@ export async function getUserAreaAccess(session: SessionPayload | null): Promise
       };
     }
 
-    // Jika user tidak terhubung ke penugasan wilayah spesifik dan bukan admin
-    // Tetap tandai bukan admin agar tidak bisa bypass
+    // Jika user TIDAK dibatasi wilayahnya (akses bebas/penuh ke seluruh Kabupaten Kebumen)
+    const [allWbMaster]: any = await pool.query(
+      `SELECT DISTINCT nama_puskeswan, binaan FROM wilayah_binaan`
+    );
+    const allKec: string[] = Array.from(new Set<string>((allWbMaster || []).map((r: any) => normalizeKecamatanName(r.binaan))));
+    const allPusk: string[] = Array.from(new Set<string>((allWbMaster || []).map((r: any) => String(r.nama_puskeswan || ''))));
+
     return {
       isAdmin: false,
-      allowedKecamatan: [],
-      allowedPuskeswan: [],
+      isUnrestricted: true,
+      allowedKecamatan: allKec,
+      allowedPuskeswan: allPusk,
       allowedPuskeswanIds: [],
       officerName: session.nama || userName,
-      mainKecamatan: '',
-      additionalKecamatan: [],
+      mainKecamatan: allKec[0] || '',
+      additionalKecamatan: allKec.slice(1),
     };
   } catch (err: any) {
     console.error('[AreaRestriction Error] Gagal memuat wilayah tugas:', err.message);
     return {
       isAdmin: false,
+      isUnrestricted: true,
       allowedKecamatan: [],
       allowedPuskeswan: [],
       allowedPuskeswanIds: [],
@@ -263,15 +274,25 @@ export async function validateAreaAccess(
   }
 
   const access = await getUserAreaAccess(session);
-  if (access.isAdmin) {
+  if (access.isAdmin || access.isUnrestricted) {
     return { allowed: true };
   }
 
   // 1. Validasi Batas Waktu 3 Hari (Grace Period) untuk Petugas Non-Admin
   if (deadlineOptions) {
+    let isMasterUnlocked = false;
+    try {
+      const [settingRows]: any = await pool.query(
+        `SELECT setting_value FROM system_settings WHERE setting_key = 'master_unlock_gembok' LIMIT 1`
+      );
+      if (settingRows && settingRows.length > 0 && settingRows[0].setting_value === 'true') {
+        isMasterUnlocked = true;
+      }
+    } catch {}
+
     const { checkMonthlyDeadline, checkDailyDeadline } = await import('@/lib/deadlineCheck');
     if (deadlineOptions.tanggal) {
-      const check = checkDailyDeadline(deadlineOptions.tanggal, false);
+      const check = checkDailyDeadline(deadlineOptions.tanggal, false, isMasterUnlocked);
       if (check.isLocked) {
         return {
           allowed: false,
@@ -286,7 +307,7 @@ export async function validateAreaAccess(
       }
     }
     if (deadlineOptions.bulan && deadlineOptions.tahun) {
-      const check = checkMonthlyDeadline(deadlineOptions.bulan, deadlineOptions.tahun, false);
+      const check = checkMonthlyDeadline(deadlineOptions.bulan, deadlineOptions.tahun, false, isMasterUnlocked);
       if (check.isLocked) {
         return {
           allowed: false,

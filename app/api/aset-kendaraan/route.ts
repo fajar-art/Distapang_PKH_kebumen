@@ -28,6 +28,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Data wajib belum lengkap!' }, { status: 400 });
     }
 
+    // Anti-duplikasi: Cek apakah kendaraan dengan plat nomor yang sama baru saja ditambahkan dalam 1 menit terakhir
+    const [existing]: any = await pool.execute(
+      `SELECT id_aset FROM aset_kendaraan 
+       WHERE nopol_baru = ? AND created_at >= NOW() - INTERVAL 1 MINUTE
+       ORDER BY id_aset DESC LIMIT 1`,
+      [nopol_baru]
+    );
+
+    if (existing.length > 0) {
+      return NextResponse.json({ 
+        success: true, 
+        insertId: existing[0].id_aset, 
+        message: 'Data kendaraan sudah tersimpan sebelumnya (anti-duplikasi aktif).' 
+      });
+    }
+
     const [result]: any = await pool.execute(
       `INSERT INTO aset_kendaraan (nama_pemegang, merk_type, tahun, nopol_lama, nopol_baru, nomor_mesin, nomor_rangka)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,

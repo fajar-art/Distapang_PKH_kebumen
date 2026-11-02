@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { usePageAuth } from '@/hooks/usePageAuth';
+import { useMasterSystemLock } from '@/hooks/useMasterSystemLock';
+import { showConfirm } from '@/components/common/CustomToast';
 import {
   Users,
   UserPlus,
@@ -83,6 +85,7 @@ const KECAMATAN_KEBUMEN = [
 
 const ROLE_OPTIONS = [
   'Administrator',
+  'Petugas PKB',
   'Petugas Lapangan',
   'Puskeswan',
   'Tim Bitpro',
@@ -112,6 +115,7 @@ interface AnggotaUser {
 
 export default function AdminAnggotaPage() {
   const { isReady, isAdmin, userName, handleLogout } = usePageAuth('bitpro', 'anggota');
+  const { isMasterUnlocked, isLoading: isLockLoading, toggleMasterLock } = useMasterSystemLock();
 
   // Active Tab: 'users' (Kelola Akun & Hak Akses) atau 'territory' (Wilayah Kerja Petugas)
   const [activeTab, setActiveTab] = useState<'users' | 'territory'>('users');
@@ -285,9 +289,14 @@ export default function AdminAnggotaPage() {
 
   // Hapus User
   const handleDeleteUser = async (id: number, nama: string) => {
-    if (!confirm(`Hapus akun petugas "${nama}"? Akun ini tidak akan dapat login lagi.`)) {
-      return;
-    }
+    const ok = await showConfirm({
+      title: 'Hapus Akun Petugas',
+      message: `Hapus akun petugas "${nama}"? Akun ini tidak akan dapat login lagi.`,
+      confirmText: 'Ya, Hapus',
+      cancelText: 'Batal',
+      type: 'danger',
+    });
+    if (!ok) return;
     try {
       const res = await fetch(`/api/anggota?id=${id}`, { method: 'DELETE' });
       if (res.ok) {
@@ -621,6 +630,88 @@ export default function AdminAnggotaPage() {
       {/* ── MAIN CONTENT CONTAINER ── */}
       <main className="max-w-7xl mx-auto px-4 sm:px-8 py-6 space-y-6">
 
+        {/* ── KONTROL MASTER GEMBOK PERIODE SISTEM (BUKA/KUNCI SEMUA TABEL) ── */}
+        <div className={`p-4 sm:p-5 rounded-3xl border transition-all shadow-xs ${
+          isMasterUnlocked
+            ? 'bg-amber-500/10 border-amber-300 dark:border-amber-800'
+            : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'
+        }`}>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3.5">
+              <div className={`p-3 rounded-2xl text-white shrink-0 ${
+                isMasterUnlocked ? 'bg-amber-500 shadow-xs' : 'bg-slate-700 dark:bg-slate-600'
+              }`}>
+                {isMasterUnlocked ? <Unlock size={22} strokeWidth={2.5} /> : <Lock size={22} strokeWidth={2.5} />}
+              </div>
+              <div className="space-y-0.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white">
+                    Kontrol Master Gembok Periode &amp; Deadline Tabel
+                  </h2>
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                    isMasterUnlocked
+                      ? 'bg-amber-500 text-white animate-pulse'
+                      : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300'
+                  }`}>
+                    {isMasterUnlocked ? '🔓 SEMUA GEMBOK TERBUKA' : '🔒 BATAS WAKTU AKTIF'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed max-w-3xl">
+                  {isMasterUnlocked
+                    ? 'Mode Buka Gembok Darurat Aktif: Seluruh batas waktu deadline dan gembok tabel (RPH/TPH/TPU, Puskeswan, Vaksinasi PMK, dll) saat ini DIBUKA untuk semua petugas dan dapat diedit.'
+                    : 'Batas waktu deadline normal sedang berjalan: Data periode atau hari lampau terkunci secara otomatis. Klik tombol di kanan jika perlu membuka semua gembok tabel untuk petugas.'}
+                </p>
+              </div>
+            </div>
+
+            <div className="shrink-0 flex items-center">
+              <button
+                type="button"
+                disabled={isLockLoading}
+                onClick={async () => {
+                  const nextState = !isMasterUnlocked;
+                  const ok = await showConfirm({
+                    title: nextState ? 'Buka Semua Gembok Sistem?' : 'Kunci Kembali Sistem?',
+                    message: nextState
+                      ? 'Apakah Anda yakin ingin MEMBUKA seluruh gembok tabel di semua modul? Seluruh akun petugas dapat menginput atau mengedit data periode lampau.'
+                      : 'Apakah Anda yakin ingin MENGUNCI kembali seluruh gembok tabel dan mengaktifkan deadline normal?',
+                    confirmText: nextState ? 'Ya, Buka Semua' : 'Ya, Kunci Kembali',
+                    cancelText: 'Batal',
+                    type: nextState ? 'warning' : 'info',
+                  });
+                  if (ok) {
+                    const success = await toggleMasterLock(nextState);
+                    if (success) {
+                      showToast('success', nextState ? 'Semua gembok tabel berhasil DIBUKA.' : 'Deadline normal sistem berhasil DIAKTIFKAN kembali.');
+                    } else {
+                      showToast('error', 'Gagal mengubah status gembok sistem.');
+                    }
+                  }
+                }}
+                className={`min-h-[42px] px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs ${
+                  isMasterUnlocked
+                    ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                    : 'bg-slate-900 dark:bg-slate-700 hover:bg-slate-800 dark:hover:bg-slate-600 text-white'
+                }`}
+              >
+                {isLockLoading ? (
+                  <RefreshCw size={15} className="animate-spin" />
+                ) : isMasterUnlocked ? (
+                  <>
+                    <Lock size={15} />
+                    <span>Kunci Kembali Sistem (Normal)</span>
+                  </>
+                ) : (
+                  <>
+                    <Unlock size={15} />
+                    <span>Buka Semua Gembok (Darurat)</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+
         {/* ======================================================== */}
         {/* TAB 1: KELOLA AKUN & HAK AKSES                           */}
         {/* ======================================================== */}
@@ -697,29 +788,29 @@ export default function AdminAnggotaPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
-                      <tr className="bg-slate-100/75 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 text-[11px] font-extrabold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
-                        <th className="p-3.5 text-center w-12">No</th>
-                        <th className="p-3.5 min-w-[200px]">Nama Lengkap &amp; Username</th>
-                        <th className="p-3.5 whitespace-nowrap">Jabatan / Role</th>
-                        <th className="p-3.5 whitespace-nowrap">Wilayah Penugasan</th>
-                        <th className="p-3.5 whitespace-nowrap">Izin Modul</th>
-                        <th className="p-3.5 whitespace-nowrap text-center">Status</th>
+                      <tr className="bg-slate-100/90 dark:bg-slate-700/50 border-b border-slate-300 dark:border-slate-700 text-[11px] font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                        <th className="p-3.5 text-center w-12 border-r border-slate-300 dark:border-slate-700">No</th>
+                        <th className="p-3.5 min-w-[200px] border-r border-slate-300 dark:border-slate-700">Nama Lengkap &amp; Username</th>
+                        <th className="p-3.5 whitespace-nowrap border-r border-slate-300 dark:border-slate-700">Jabatan / Role</th>
+                        <th className="p-3.5 whitespace-nowrap border-r border-slate-300 dark:border-slate-700">Wilayah Penugasan</th>
+                        <th className="p-3.5 whitespace-nowrap border-r border-slate-300 dark:border-slate-700">Izin Modul</th>
+                        <th className="p-3.5 whitespace-nowrap text-center border-r border-slate-300 dark:border-slate-700">Status</th>
                         <th className="p-3.5 whitespace-nowrap text-center">Aksi</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
+                    <tbody className="divide-y divide-slate-300 dark:divide-slate-700">
                       {filteredMembers.map((m, idx) => {
                         const isFieldRole =
                           m.role?.toLowerCase() === 'petugas lapangan' ||
                           m.role?.toLowerCase() === 'puskeswan';
 
                         return (
-                          <tr key={m.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-750 transition-colors">
-                            <td className="p-3.5 text-center font-bold text-slate-400">
+                          <tr key={m.id} className="odd:bg-white even:bg-slate-100 dark:odd:bg-slate-900/60 dark:even:bg-slate-800/50 hover:bg-blue-50/60 dark:hover:bg-slate-750 transition-colors">
+                            <td className="p-3.5 text-center font-bold text-slate-500 dark:text-slate-400 border-r border-slate-300 dark:border-slate-700">
                               {idx + 1}
                             </td>
 
-                            <td className="p-3.5">
+                            <td className="p-3.5 border-r border-slate-300 dark:border-slate-700">
                               <div className="font-extrabold text-slate-900 dark:text-white text-sm">
                                 {m.nama}
                               </div>
@@ -728,13 +819,13 @@ export default function AdminAnggotaPage() {
                               </div>
                             </td>
 
-                            <td className="p-3.5">
+                            <td className="p-3.5 border-r border-slate-300 dark:border-slate-700">
                               <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold border ${getRoleBadge(m.role)}`}>
                                 {m.role}
                               </span>
                             </td>
 
-                            <td className="p-3.5">
+                            <td className="p-3.5 border-r border-slate-300 dark:border-slate-700">
                               {m.puskeswan_utama ? (
                                 <div>
                                   <div className="font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
@@ -754,7 +845,7 @@ export default function AdminAnggotaPage() {
                               )}
                             </td>
 
-                            <td className="p-3.5">
+                            <td className="p-3.5 border-r border-slate-300 dark:border-slate-700">
                               <div className="flex flex-wrap gap-1">
                                 {(['bitpro', 'keswan', 'kesmavet', 'aset'] as const).map((modKey) => {
                                   const modPerm = m.permissions?.[modKey];
@@ -777,7 +868,7 @@ export default function AdminAnggotaPage() {
                               </div>
                             </td>
 
-                            <td className="p-3.5 text-center">
+                            <td className="p-3.5 text-center border-r border-slate-300 dark:border-slate-700">
                               {m.status === 'Aktif' ? (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800">
                                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
@@ -900,29 +991,29 @@ export default function AdminAnggotaPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
-                      <tr className="bg-slate-100/75 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 text-[11px] font-extrabold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
-                        <th className="p-3.5 text-center w-12">No</th>
-                        <th className="p-3.5 min-w-[200px]">Nama Petugas &amp; NIP/NIK</th>
-                        <th className="p-3.5 whitespace-nowrap">Akun Login Terhubung</th>
-                        <th className="p-3.5 whitespace-nowrap">Puskeswan Binaan Utama</th>
-                        <th className="p-3.5 min-w-[200px]">Wilayah Puskeswan Tambahan</th>
-                        <th className="p-3.5 whitespace-nowrap">Kompetensi</th>
+                      <tr className="bg-slate-100/90 dark:bg-slate-700/50 border-b border-slate-300 dark:border-slate-700 text-[11px] font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                        <th className="p-3.5 text-center w-12 border-r border-slate-300 dark:border-slate-700">No</th>
+                        <th className="p-3.5 min-w-[200px] border-r border-slate-300 dark:border-slate-700">Nama Petugas &amp; NIP/NIK</th>
+                        <th className="p-3.5 whitespace-nowrap border-r border-slate-300 dark:border-slate-700">Akun Login Terhubung</th>
+                        <th className="p-3.5 whitespace-nowrap border-r border-slate-300 dark:border-slate-700">Puskeswan Binaan Utama</th>
+                        <th className="p-3.5 min-w-[200px] border-r border-slate-300 dark:border-slate-700">Wilayah Puskeswan Tambahan</th>
+                        <th className="p-3.5 whitespace-nowrap border-r border-slate-300 dark:border-slate-700">Kompetensi</th>
                         <th className="p-3.5 whitespace-nowrap text-center">Aksi</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
+                    <tbody className="divide-y divide-slate-300 dark:divide-slate-700">
                       {filteredPetugasList.map((p, idx) => {
                         const puskMatch = PUSKESWAN_MASTER.find(
                           (pm) => pm.name.toLowerCase() === (p.wilayah_puskeswan || p.puskeswan_utama || '').toLowerCase()
                         );
 
                         return (
-                          <tr key={p.id_kompetensi || idx} className="hover:bg-blue-50/40 dark:hover:bg-slate-750 transition-colors">
-                            <td className="p-3.5 text-center font-bold text-slate-400">
+                          <tr key={p.id_kompetensi || idx} className="odd:bg-white even:bg-slate-100 dark:odd:bg-slate-900/60 dark:even:bg-slate-800/50 hover:bg-blue-50/60 dark:hover:bg-slate-750 transition-colors">
+                            <td className="p-3.5 text-center font-bold text-slate-500 dark:text-slate-400 border-r border-slate-300 dark:border-slate-700">
                               {p.no_urut || idx + 1}
                             </td>
 
-                            <td className="p-3.5">
+                            <td className="p-3.5 border-r border-slate-300 dark:border-slate-700">
                               <div className="font-extrabold text-slate-900 dark:text-white text-sm">
                                 {p.nama_petugas}
                               </div>
@@ -931,7 +1022,7 @@ export default function AdminAnggotaPage() {
                               </div>
                             </td>
 
-                            <td className="p-3.5">
+                            <td className="p-3.5 border-r border-slate-300 dark:border-slate-700">
                               {p.id_user ? (
                                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 font-bold">
                                   <Link2 size={12} />
@@ -944,7 +1035,7 @@ export default function AdminAnggotaPage() {
                               )}
                             </td>
 
-                            <td className="p-3.5">
+                            <td className="p-3.5 border-r border-slate-300 dark:border-slate-700">
                               {p.wilayah_puskeswan || p.puskeswan_utama ? (
                                 <>
                                   <div className="font-bold text-blue-950 dark:text-blue-200 flex items-center gap-1.5">
@@ -964,7 +1055,7 @@ export default function AdminAnggotaPage() {
                               )}
                             </td>
 
-                            <td className="p-3.5">
+                            <td className="p-3.5 border-r border-slate-300 dark:border-slate-700">
                               {p.wilayah_kerja_tambahan ? (
                                 <span className="px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/50 text-blue-800 dark:text-blue-300 text-xs font-semibold border border-blue-200 dark:border-blue-800/60 inline-block">
                                   {p.wilayah_kerja_tambahan}
@@ -974,7 +1065,7 @@ export default function AdminAnggotaPage() {
                               )}
                             </td>
 
-                            <td className="p-3.5">
+                            <td className="p-3.5 border-r border-slate-300 dark:border-slate-700">
                               <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-750 text-slate-700 dark:text-slate-300 font-bold text-[10px] uppercase tracking-wider">
                                 {p.kompetensi || 'IB'}
                               </span>
@@ -1050,7 +1141,7 @@ export default function AdminAnggotaPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div className="space-y-1">
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                    Nama Lengkap Petugas <span className="text-red-500">*</span>
+                    Nama Lengkap Petugas
                   </label>
                   <input
                     type="text"
@@ -1064,7 +1155,7 @@ export default function AdminAnggotaPage() {
 
                 <div className="space-y-1">
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                    NIP / Username Login <span className="text-red-500">*</span>
+                    NIP / Username Login
                   </label>
                   <input
                     type="text"
@@ -1078,8 +1169,11 @@ export default function AdminAnggotaPage() {
 
                 <div className="space-y-1">
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                    {isEditingUser ? 'Ganti Kata Sandi (Opsional)' : 'Kata Sandi Awal'}{' '}
-                    {!isEditingUser && <span className="text-red-500">*</span>}
+                    {isEditingUser ? (
+                      <>Ganti Kata Sandi <span className="text-[11px] text-slate-400 font-normal">(opsional)</span></>
+                    ) : (
+                      'Kata Sandi Awal'
+                    )}
                   </label>
                   <div className="relative">
                     <input
@@ -1101,7 +1195,7 @@ export default function AdminAnggotaPage() {
 
                 <div className="space-y-1">
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                    Jabatan / Role Pengguna <span className="text-red-500">*</span>
+                    Jabatan / Role Pengguna
                   </label>
                   <select
                     value={formRole}
@@ -1180,7 +1274,7 @@ export default function AdminAnggotaPage() {
                       {/* Wilayah Binaan Utama (Puskeswan) */}
                       <div className="space-y-1">
                         <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                          Wilayah Binaan Utama (Puskeswan) <span className="text-red-500">*</span>
+                          Wilayah Binaan Utama (Puskeswan)
                         </label>
                         <select
                           value={formPuskeswanUtama}
@@ -1198,7 +1292,7 @@ export default function AdminAnggotaPage() {
                       {/* Kompetensi */}
                       <div className="space-y-1">
                         <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                          Kompetensi Teknis
+                          Kompetensi Teknis <span className="text-[11px] text-slate-400 font-normal">(opsional)</span>
                         </label>
                         <input
                           type="text"
@@ -1624,7 +1718,7 @@ export default function AdminAnggotaPage() {
                       {/* Puskeswan Binaan Utama */}
                       <div className="space-y-1">
                         <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                          Puskeswan Binaan Utama <span className="text-red-500">*</span>
+                          Puskeswan Binaan Utama
                         </label>
                         <select
                           required
@@ -1643,7 +1737,7 @@ export default function AdminAnggotaPage() {
                       {/* Kompetensi */}
                       <div className="space-y-1">
                         <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                          Kompetensi Petugas
+                          Kompetensi Petugas <span className="text-[11px] text-slate-400 font-normal">(opsional)</span>
                         </label>
                         <input
                           type="text"

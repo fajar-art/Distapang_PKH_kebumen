@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import JSZip from 'jszip';
 import { KelompokTani } from './types';
+import { showConfirm, showToast } from '@/components/common/CustomToast';
 
 export const STANDARD_CATEGORIES = [
   'Surat Keaktifan',
@@ -150,7 +151,7 @@ export default function KttDocumentModal({
       }
 
       if (filesToUpload.length === 0) {
-        alert('Tidak ada berkas valid yang dapat diunggah.');
+        showToast('Tidak ada berkas valid yang dapat diunggah.', 'warning');
         setIsUploading(false);
         setUploadProgress(null);
         return;
@@ -179,13 +180,13 @@ export default function KttDocumentModal({
       if (resJson.success) {
         await fetchDocuments();
         if (onDocumentsUpdated) onDocumentsUpdated();
-        alert(`Berhasil mengunggah ${filesToUpload.length} berkas ke arsip KTT ${ktt.namaKelompok}!`);
+        showToast(`Berhasil mengunggah ${filesToUpload.length} berkas ke arsip KTT ${ktt.namaKelompok}!`, 'success');
       } else {
-        alert(`Gagal mengunggah berkas: ${resJson.error || 'Terjadi kesalahan'}`);
+        showToast(`Gagal mengunggah berkas: ${resJson.error || 'Terjadi kesalahan'}`, 'error');
       }
     } catch (err: any) {
       console.error('Error saat upload:', err);
-      alert(`Terjadi kesalahan saat mengunggah: ${err.message}`);
+      showToast(`Terjadi kesalahan saat mengunggah: ${err.message}`, 'error');
     } finally {
       setIsUploading(false);
       setUploadProgress(null);
@@ -196,13 +197,17 @@ export default function KttDocumentModal({
   // Handle delete document (Hanya Administrator)
   const handleDeleteDocument = async (doc: KttDocument) => {
     if (!isAdmin) {
-      alert('Akses Ditolak: Hanya Administrator yang berhak menghapus berkas dokumen KTT.');
+      showToast('Akses Ditolak: Hanya Administrator yang berhak menghapus berkas dokumen KTT.', 'warning');
       return;
     }
 
-    const confirmDelete = window.confirm(
-      `Apakah Anda yakin ingin menghapus berkas:\n"${doc.title || doc.original_filename}"?\n\nTindakan ini tidak dapat dibatalkan.`
-    );
+    const confirmDelete = await showConfirm({
+      title: 'Hapus Berkas Dokumen KTT',
+      message: `Apakah Anda yakin ingin menghapus berkas "${doc.title || doc.original_filename}"? Tindakan ini tidak dapat dibatalkan.`,
+      confirmText: 'Ya, Hapus',
+      cancelText: 'Batal',
+      type: 'danger',
+    });
     if (!confirmDelete) return;
 
     try {
@@ -218,12 +223,13 @@ export default function KttDocumentModal({
         setDocuments((prev) => prev.filter((d) => d.id !== doc.id));
         if (previewDoc?.id === doc.id) setPreviewDoc(null);
         if (onDocumentsUpdated) onDocumentsUpdated();
+        showToast('Berkas berhasil dihapus', 'success');
       } else {
-        alert(`Gagal menghapus berkas: ${resJson.error}`);
+        showToast(`Gagal menghapus berkas: ${resJson.error}`, 'error');
       }
     } catch (e: any) {
       console.error('Gagal menghapus berkas:', e);
-      alert('Gagal menghubungi server untuk menghapus berkas.');
+      showToast('Gagal menghubungi server untuk menghapus berkas.', 'error');
     }
   };
 
@@ -300,24 +306,25 @@ export default function KttDocumentModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-5xl h-[92vh] max-h-[900px] flex flex-col shadow-2xl overflow-hidden">
         {/* ── 1. MODAL HEADER ── */}
-        <div className="p-4 sm:p-6 border-b border-slate-200 dark:border-slate-800 flex items-start justify-between gap-4 bg-slate-50/80 dark:bg-slate-900 shrink-0">
-          <div className="flex items-start gap-3.5 min-w-0">
-            <div className="w-11 h-11 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-md shrink-0">
-              <FolderOpen size={22} />
+        <div className="p-3.5 sm:p-6 border-b border-slate-200 dark:border-slate-800 flex items-start justify-between gap-3 bg-slate-50/80 dark:bg-slate-900 shrink-0">
+          <div className="flex items-start gap-2.5 sm:gap-3.5 min-w-0 flex-1">
+            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-md shrink-0 mt-0.5">
+              <FolderOpen size={18} className="sm:hidden" />
+              <FolderOpen size={22} className="hidden sm:block" />
             </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap mb-1">
-                <span className="text-xs font-extrabold uppercase px-2.5 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap mb-0.5 sm:mb-1">
+                <span className="text-[10px] sm:text-xs font-extrabold uppercase px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                   Arsip Dokumen Digital KTT
                 </span>
-                <span className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+                <span className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-mono">
                   Reg: {ktt.nomorRegister || '-'}
                 </span>
               </div>
-              <h2 className="text-base sm:text-xl font-extrabold text-slate-900 dark:text-slate-100 truncate">
+              <h2 className="text-sm sm:text-xl font-extrabold text-slate-900 dark:text-slate-100 truncate leading-snug">
                 {ktt.namaKelompok}
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+              <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
                 Desa {ktt.desa || '-'}, Kec. {ktt.kecamatan || '-'} • Ketua: <span className="font-semibold text-slate-700 dark:text-slate-300">{ktt.namaKetuaKelompok || '-'}</span>
               </p>
             </div>
@@ -325,27 +332,23 @@ export default function KttDocumentModal({
 
           <button
             onClick={onClose}
-            className="w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-200/60 dark:hover:bg-slate-800 flex items-center justify-center text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors shrink-0"
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-200/60 dark:hover:bg-slate-800 flex items-center justify-center text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors shrink-0"
             title="Tutup Modal"
           >
-            <X size={18} />
+            <X size={16} className="sm:hidden" />
+            <X size={18} className="hidden sm:block" />
           </button>
         </div>
 
         {/* ── 2. SCROLLABLE CONTENT BODY ── */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-3.5 sm:p-6 space-y-5 sm:space-y-6">
           {/* Kelengkapan 8 Dokumen Utama (Checklist Card) */}
-          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 sm:p-5 border border-slate-200 dark:border-slate-800">
-            <div className="flex items-center justify-between gap-3 mb-3">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 size={16} className="text-emerald-600 dark:text-emerald-400" />
-                <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100">
-                  Status Kelengkapan Dokumen KTT
-                </h3>
-              </div>
-              <span className="text-xs font-extrabold px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                {availableCount} dari {STANDARD_CATEGORIES.length} Kategori Tersedia
-              </span>
+          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-3.5 sm:p-5 border border-slate-200 dark:border-slate-800">
+            <div className="flex items-center gap-2 mb-3">
+              <CheckCircle2 size={16} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100">
+                Status Kelengkapan Dokumen KTT
+              </h3>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
@@ -374,11 +377,11 @@ export default function KttDocumentModal({
 
           {/* Area Form Upload Dokumen Per-KTT */}
           {canEdit && (
-            <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 border-2 border-dashed border-emerald-200 dark:border-emerald-800/60 hover:border-emerald-400 transition-colors">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl p-3.5 sm:p-5 border-2 border-dashed border-emerald-200 dark:border-emerald-800/60 hover:border-emerald-400 transition-colors">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
                 <div>
                   <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                    <Upload size={16} className="text-emerald-600" />
+                    <Upload size={16} className="text-emerald-600 shrink-0" />
                     <span>Unggah Berkas Baru ke KTT Ini</span>
                   </h4>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
@@ -386,11 +389,11 @@ export default function KttDocumentModal({
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
                   <select
                     value={uploadCategory}
                     onChange={(e) => setUploadCategory(e.target.value)}
-                    className="h-9 px-3 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-semibold focus:outline-hidden focus:border-emerald-500"
+                    className="min-h-touch h-9.5 px-3 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-semibold focus:outline-hidden focus:border-emerald-500 w-full sm:w-auto"
                   >
                     <option value="auto">Auto Deteksi Kategori</option>
                     {STANDARD_CATEGORIES.map((cat) => (
@@ -412,7 +415,7 @@ export default function KttDocumentModal({
 
                   <label
                     htmlFor="ktt-single-upload"
-                    className={`min-h-touch h-9 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-all ${
+                    className={`min-h-touch h-9.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-all w-full sm:w-auto shrink-0 ${
                       isUploading ? 'opacity-50 pointer-events-none' : ''
                     }`}
                   >
@@ -506,10 +509,10 @@ export default function KttDocumentModal({
                 {filteredDocs.map((doc) => (
                   <div
                     key={doc.id}
-                    className="p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700 transition-all flex items-start justify-between gap-3 shadow-2xs group"
+                    className="p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700 transition-all flex flex-col sm:flex-row sm:items-start justify-between gap-3 shadow-2xs group"
                   >
                     <div className="flex items-start gap-3 min-w-0 flex-1">
-                      <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 shrink-0">
+                      <div className="p-2 sm:p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 shrink-0 mt-0.5">
                         {renderFileIcon(doc.original_filename)}
                       </div>
                       <div className="min-w-0 flex-1">
@@ -518,8 +521,8 @@ export default function KttDocumentModal({
                         </span>
                         <h5 
                           onClick={() => window.open(doc.file_path, '_blank')}
-                          className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 truncate cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline transition-colors" 
-                          title={`Buka "${doc.title || doc.original_filename}" di tab baru (1 layar penuh)`}
+                          className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 truncate cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline transition-colors leading-snug" 
+                          title={`Buka "${doc.title || doc.original_filename}" di tab baru`}
                         >
                           {doc.title || doc.original_filename}
                         </h5>
@@ -531,17 +534,17 @@ export default function KttDocumentModal({
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5 shrink-0 pt-1">
-                      {/* Tombol Preview di Tab Baru (1 Layar Penuh) */}
+                    <div className="flex items-center gap-1.5 shrink-0 pt-2 sm:pt-1 border-t sm:border-t-0 border-slate-100 dark:border-slate-800/80 justify-end">
+                      {/* Tombol Preview di Tab Baru */}
                       <a
                         href={doc.file_path}
                         target="_blank"
                         rel="noopener noreferrer"
-                        title="Buka Dokumen di Tab Baru (Layar Penuh)"
-                        className="h-8 px-2 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 text-emerald-800 dark:text-emerald-300 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                        title="Buka Dokumen di Tab Baru"
+                        className="h-8 px-2.5 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 text-emerald-800 dark:text-emerald-300 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
                       >
                         <ExternalLink size={13} />
-                        <span className="text-[11px]">Buka Tab Baru</span>
+                        <span className="text-[11px]">Buka</span>
                       </a>
 
                       {/* Tombol Download */}
@@ -553,7 +556,7 @@ export default function KttDocumentModal({
                         title="Unduh Berkas"
                         className="w-8 h-8 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-blue-50 hover:text-blue-700 dark:hover:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 transition-colors"
                       >
-                        <Download size={15} />
+                        <Download size={14} />
                       </a>
 
                       {/* Tombol Hapus Khusus Administrator yang Punya Akses Edit */}
@@ -562,9 +565,9 @@ export default function KttDocumentModal({
                           type="button"
                           onClick={() => handleDeleteDocument(doc)}
                           title="Hapus Berkas"
-                          className="w-8 h-8 rounded-lg border border-red-200 dark:border-red-900/60 hover:bg-red-50 text-red-600 dark:text-red-400 dark:hover:bg-red-950/40 flex items-center justify-center transition-colors"
+                          className="w-8 h-8 rounded-lg border border-red-200 dark:border-red-900/60 hover:bg-red-50 text-red-600 dark:text-red-400 dark:hover:bg-red-950/40 flex items-center justify-center transition-colors cursor-pointer"
                         >
-                          <Trash2 size={15} />
+                          <Trash2 size={14} />
                         </button>
                       )}
                     </div>
@@ -576,14 +579,14 @@ export default function KttDocumentModal({
         </div>
 
         {/* ── 3. MODAL FOOTER ── */}
-        <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex items-center justify-between text-xs text-slate-500 shrink-0">
+        <div className="p-3.5 sm:p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex items-center justify-between text-xs text-slate-500 shrink-0">
           <div>
             Total Tersimpan: <span className="font-bold text-slate-900 dark:text-slate-100">{documents.length} Dokumen</span>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 font-bold text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+            className="px-4 sm:px-5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 font-bold text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
           >
             Tutup
           </button>

@@ -22,10 +22,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Tanggal dan Merk Vaksin wajib diisi.' }, { status: 400 });
     }
 
-    const [result]: any = await pool.execute(
-      'INSERT INTO vaksin_apbd_droping (tanggal, merk_vaksin, jumlah, keterangan) VALUES (?,?,?,?)',
-      [tanggal, merk_vaksin, jumlah || 0, keterangan]
+    const [existing]: any = await pool.execute(
+      'SELECT id FROM vaksin_apbd_droping WHERE tanggal = ? AND merk_vaksin = ? AND jumlah = ? LIMIT 1',
+      [tanggal, merk_vaksin, jumlah || 0]
     );
+
+    let recordId: number;
+    let actionType: 'CREATE' | 'UPDATE' = 'CREATE';
+
+    if (existing && existing.length > 0) {
+      recordId = existing[0].id;
+      actionType = 'UPDATE';
+      await pool.execute(
+        'UPDATE vaksin_apbd_droping SET keterangan = ? WHERE id = ?',
+        [keterangan, recordId]
+      );
+    } else {
+      const [result]: any = await pool.execute(
+        'INSERT INTO vaksin_apbd_droping (tanggal, merk_vaksin, jumlah, keterangan) VALUES (?,?,?,?)',
+        [tanggal, merk_vaksin, jumlah || 0, keterangan]
+      );
+      recordId = result.insertId;
+    }
 
     const session = await getSessionFromRequest(request as any);
     const userName = session?.nama || session?.nip_username || request.headers.get('x-user-name') || 'Petugas';
@@ -34,13 +52,13 @@ export async function POST(request: Request) {
       module: 'keswan',
       submenu: 'data-vaksinasi',
       tableName: 'vaksin_apbd_droping',
-      recordId: result.insertId,
-      action: 'CREATE',
+      recordId,
+      action: actionType,
       userName,
       details: { tanggal, merk_vaksin, jumlah, keterangan },
     });
 
-    return NextResponse.json({ success: true, message: 'Droping vaksin berhasil dicatat.', id: result.insertId });
+    return NextResponse.json({ success: true, message: 'Droping vaksin berhasil dicatat.', id: recordId });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }

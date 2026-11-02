@@ -128,8 +128,21 @@ export async function POST(req: Request) {
     const kodePuskeswan = kode || nama.toUpperCase().replace(/[^A-Z0-9]/g, '_');
     const computedMapsUrl = maps_url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(nama + ' ' + alamat)}`;
     const computedGaleri = Array.isArray(galeri_foto) ? galeri_foto : (foto ? [foto] : []);
-
     await ensureTable();
+
+    // Anti-duplikasi: Cek apakah profil dengan kode sama atau nama sama baru saja dibuat dalam 1 menit
+    const [existing]: any = await pool.execute(
+      `SELECT id FROM puskeswan_profil WHERE kode = ? OR (nama = ? AND created_at >= NOW() - INTERVAL 1 MINUTE) LIMIT 1`,
+      [kodePuskeswan, nama]
+    );
+    if (existing.length > 0) {
+      return NextResponse.json({
+        success: true,
+        message: 'Data profil Puskeswan sudah tersimpan (anti-duplikasi aktif).',
+        data: { id: String(existing[0].id), nama, kode: kodePuskeswan }
+      });
+    }
+
     const [result]: any = await pool.execute(
       `INSERT INTO puskeswan_profil 
        (nama, kode, wilayah_binaan, alamat, maps_url, dokter_hewan, kontak, jam_operasional, jadwal_harian, layanan, fasilitas, keterangan, foto, galeri_foto)

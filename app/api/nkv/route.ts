@@ -28,6 +28,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Nama usaha wajib diisi!' }, { status: 400 });
     }
 
+    // Anti-duplikasi: Cek apakah data persis sama baru saja dibuat dalam kurun waktu 1 menit terakhir
+    const [existing]: any = await pool.execute(
+      `SELECT id_pembinaan FROM pembinaan_nkv 
+       WHERE nama_usaha = ? AND jenis_usaha = ? AND created_at >= NOW() - INTERVAL 1 MINUTE
+       ORDER BY id_pembinaan DESC LIMIT 1`,
+      [nama_usaha, jenis_usaha || '']
+    );
+
+    if (existing.length > 0) {
+      return NextResponse.json({ 
+        success: true, 
+        insertId: existing[0].id_pembinaan, 
+        message: 'Data NKV sudah tersimpan sebelumnya (anti-duplikasi aktif).' 
+      });
+    }
+
     const [result]: any = await pool.execute(
       `INSERT INTO pembinaan_nkv (nama_usaha, jenis_usaha, proses, pembinaan_1, hasil_1, pembinaan_2, hasil_2, pelatihan_higiene, pengeluaran_rekomendasi, keterangan)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,

@@ -1,9 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { saveAuthSession, getAuthSession } from '@/lib/auth';
-import { CloudflareTurnstileRef } from '@/components/common/CloudflareTurnstile';
 
 import {
   PopulasiItem,
@@ -13,12 +11,15 @@ import {
 import { ArrowUp } from 'lucide-react';
 import LandingHeader from '@/components/landing/LandingHeader';
 import LandingHeroSection from '@/components/landing/LandingHeroSection';
-import LandingStatsSection from '@/components/landing/LandingStatsSection';
+import LandingNewsSection from '@/components/landing/LandingNewsSection';
+import LandingNewsPopup from '@/components/landing/LandingNewsPopup';
+import LandingNewsDetailModal from '@/components/landing/LandingNewsDetailModal';
+import LandingHargaTernakSection from '@/components/landing/LandingHargaTernakSection';
 import LandingFacilitiesSection from '@/components/landing/LandingFacilitiesSection';
 import LandingChartsSection from '@/components/landing/LandingChartsSection';
 import LandingServicesSection from '@/components/landing/LandingServicesSection';
 import { LandingFooter } from '@/components/landing/LandingFooter';
-import { LandingLoginModal } from '@/components/landing/LandingLoginModal';
+import { BeritaItem } from '@/app/admin/berita/page';
 
 export default function LandingPage() {
   const router = useRouter();
@@ -35,10 +36,10 @@ export default function LandingPage() {
   const [vaksinasiList, setVaksinasiList] = useState<any[]>([]);
   const [rphList, setRphList] = useState<any[]>([]);
   const [nkvList, setNkvList] = useState<any[]>([]);
+  const [periodePopulasi, setPeriodePopulasi] = useState<any>(null);
   const [isDataLoading, setIsDataLoading] = useState(true);
 
-  // State Auth Modal & Navigation
-  const [showLoginModal, setShowLoginModal] = useState(false);
+  // State Navigation
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showBackToTop, setShowBackToTop] = useState(false);
 
@@ -79,23 +80,16 @@ export default function LandingPage() {
   // Dashboard state
   const [detailView, setDetailView] = useState<string | null>(null);
   const [subTabProd, setSubTabProd] = useState<'populasi' | 'daging' | 'telur'>('populasi');
-  const [expandedPuskeswanLayanan, setExpandedPuskeswanLayanan] = useState<number | null>(null);
   const [expandedTableLayanan, setExpandedTableLayanan] = useState<number | null>(null);
   const [searchVaksin, setSearchVaksin] = useState('');
   const [searchPuskeswan, setSearchPuskeswan] = useState('');
-  const [puskeswanViewMode, setPuskeswanViewMode] = useState<'cards' | 'table'>('cards');
   const [facilityTab, setFacilityTab] = useState<'puskeswan' | 'rph'>('puskeswan');
   const [searchRphFilter, setSearchRphFilter] = useState('');
-  const [rphViewMode, setRphViewMode] = useState<'cards' | 'table'>('cards');
 
-  // Form login
-  const [loginId, setLoginId] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
-  const turnstileRef = useRef<CloudflareTurnstileRef>(null);
+  // ── BERITA PORTAL PUBLIK STATES ──
+  const [newsList, setNewsList] = useState<BeritaItem[]>([]);
+  const [isNewsLoading, setIsNewsLoading] = useState(true);
+  const [selectedDetailNews, setSelectedDetailNews] = useState<BeritaItem | null>(null);
 
   // ── FETCH LANGSUNG 100% DATA REAL DARI DATABASE MYSQL ──
   useEffect(() => {
@@ -118,6 +112,9 @@ export default function LandingPage() {
             setVaksinasiList(d.vaksinasiList || []);
             setRphList(d.rphList || []);
             setNkvList(d.nkvList || []);
+            if (d.periodePopulasi) {
+              setPeriodePopulasi(d.periodePopulasi);
+            }
           }
         }
       } catch (err) {
@@ -127,76 +124,35 @@ export default function LandingPage() {
       }
     };
 
+    const loadNewsData = async () => {
+      try {
+        setIsNewsLoading(true);
+        const res = await fetch('/api/berita');
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.data)) {
+            setNewsList(json.data);
+          }
+        }
+      } catch (err) {
+        console.warn('Gagal memuat data berita portal:', err);
+      } finally {
+        setIsNewsLoading(false);
+      }
+    };
+
     loadPortalData();
+    loadNewsData();
   }, []);
 
-  // Handler Login Petugas
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-
-    if (!captchaToken) {
-      setError('Silakan selesaikan verifikasi keamanan Turnstile terlebih dahulu.');
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nip_username: loginId, password, captcha_token: captchaToken }),
-      });
-
-      const json = await res.json();
-
-      if (res.ok && json.success && json.user) {
-        saveAuthSession(json.user);
-        window.location.href = '/beranda';
-        return;
-      }
-
-      setError(json?.error || 'Akses ditolak. Periksa kembali ID Petugas/NIP atau kata sandi Anda.');
-      turnstileRef.current?.reset();
-      setIsLoading(false);
-    } catch {
-      setError('Terjadi kendala jaringan. Silakan coba kembali.');
-      turnstileRef.current?.reset();
-      setIsLoading(false);
-    }
-  };
-
   // ── KALKULASI TOTAL STATISTIK DARI DATABASE SECARA OTOMATIS ──
-  const totalPopulasi = useMemo(() => populasi16.reduce((sum, d) => sum + d.total, 0), [populasi16]);
-  const totalDagingKg = useMemo(() => dagingList.reduce((sum, d) => sum + d.total, 0), [dagingList]);
-  const totalTelurKg = useMemo(() => telurList.reduce((sum, d) => sum + d.total, 0), [telurList]);
   const totalFarm = useMemo(() => sebaranFarmList.reduce((sum, d) => sum + d.jumlah_farm, 0), [sebaranFarmList]);
 
   const totalTernakHewan = useMemo(() => populasiTernak8.reduce((sum, d) => sum + d.total, 0), [populasiTernak8]);
   const totalUnggas = useMemo(() => populasiUnggas8.reduce((sum, d) => sum + d.total, 0), [populasiUnggas8]);
 
-  const dataProduksiDaging = useMemo(() => [...dagingList]
-    .map((d) => ({ jenis: d.jenis, ton: d.total / 1000 }))
-    .sort((a, b) => b.ton - a.ton), [dagingList]);
-
-  const dataProduksiTelur = useMemo(() => [...telurList]
-    .map((d) => ({ jenis: d.jenis, ton: d.total / 1000 }))
-    .sort((a, b) => b.ton - a.ton), [telurList]);
-
-  const totalProdDagingTon = totalDagingKg / 1000;
-  const totalProdTelurTon = totalTelurKg / 1000;
-
   const maxTernak = populasiTernak8[0]?.total || 1;
   const maxUnggas = populasiUnggas8[0]?.total || 1;
-  const maxDagingTon = dataProduksiDaging[0]?.ton || 1;
-  const maxTelurTon = dataProduksiTelur[0]?.ton || 1;
-
-  // 4 Kartu Metrik Sekunder Teratas
-  const topUnggas = populasiUnggas8[0] || { komoditas: 'Unggas Terbesar', total: 0 };
-  const topDaging = dataProduksiDaging[0] || { jenis: 'Daging Terbesar', ton: 0 };
-  const topTelur = dataProduksiTelur[0] || { jenis: 'Telur Terbesar', ton: 0 };
-  const sapiPotongPop = populasi16.find((x) => x.komoditas === 'Sapi Potong')?.total || 0;
 
   const filteredVaksinasi = vaksinasiList.filter((row: any) =>
     (row.desa || '').toLowerCase().includes(searchVaksin.toLowerCase()) ||
@@ -228,50 +184,41 @@ export default function LandingPage() {
       <LandingHeader
         isDark={isDark}
         onToggleTheme={toggleTheme}
-        onOpenLogin={() => setShowLoginModal(true)}
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
       />
 
       {/* 2. DASHBOARD BODY */}
       <main className="flex-1 w-full">
-        <div className="max-w-[1360px] mx-auto p-3.5 sm:p-6 md:p-8 lg:p-9 space-y-6 sm:space-y-7">
-          
-          {/* Top Hero Banner With Module Cards */}
-          <LandingHeroSection
-            onSelectModule={(modKey) => {
-              if (modKey === 'bitpro') {
-                setDetailView('populasi');
-                scrollToSection('modul');
-              } else if (modKey === 'keswan') {
-                setFacilityTab('puskeswan');
-                scrollToSection('puskeswan');
-              } else if (modKey === 'kesmavet') {
-                setFacilityTab('rph');
-                scrollToSection('puskeswan');
-              }
-            }}
-          />
-
-          {/* Section 1: Stat Cards (Ringkasan Wilayah) */}
-          <LandingStatsSection
-            isDataLoading={isDataLoading}
-            totalPopulasi={totalPopulasi}
-            totalProdDagingTon={totalProdDagingTon}
-            totalProdTelurTon={totalProdTelurTon}
-            totalSapiPo={totalSapiPo}
-            topUnggas={topUnggas}
-            topDaging={topDaging}
-            topTelur={topTelur}
-            sapiPotongPop={sapiPotongPop}
-            onOpenPopulasi={(subTab) => {
-              setSubTabProd(subTab);
+        {/* Top Hero Banner With Waves Shape Divider */}
+        <LandingHeroSection
+          onSelectModule={(modKey) => {
+            if (modKey === 'bitpro') {
               setDetailView('populasi');
               scrollToSection('modul');
-            }}
+            } else if (modKey === 'keswan') {
+              setFacilityTab('puskeswan');
+              scrollToSection('puskeswan');
+            } else if (modKey === 'kesmavet') {
+              setFacilityTab('rph');
+              scrollToSection('puskeswan');
+            }
+          }}
+        />
+
+        <div className="max-w-[1360px] mx-auto p-3.5 sm:p-6 md:p-8 lg:p-9 space-y-6 sm:space-y-7">
+
+          {/* Section 1: Berita & Publikasi Terkini (Menggantikan Ringkasan Wilayah) */}
+          <LandingNewsSection
+            newsList={newsList}
+            isLoading={isNewsLoading}
+            onOpenDetail={(item) => setSelectedDetailNews(item)}
           />
 
-          {/* Section 2: Puskeswan & RPH */}
+          {/* Section 1.5: Harga Pasar Ternak */}
+          <LandingHargaTernakSection />
+
+          {/* Section 2: Puskeswan & RPH (Tabel Only) */}
           <LandingFacilitiesSection
             facilityTab={facilityTab}
             setFacilityTab={setFacilityTab}
@@ -279,19 +226,13 @@ export default function LandingPage() {
             searchPuskeswan={searchPuskeswan}
             setSearchPuskeswan={setSearchPuskeswan}
             filteredPuskeswan={filteredPuskeswan}
-            puskeswanViewMode={puskeswanViewMode}
-            setPuskeswanViewMode={setPuskeswanViewMode}
-            expandedPuskeswanLayanan={expandedPuskeswanLayanan}
-            setExpandedPuskeswanLayanan={setExpandedPuskeswanLayanan}
             expandedTableLayanan={expandedTableLayanan}
             setExpandedTableLayanan={setExpandedTableLayanan}
             searchRphFilter={searchRphFilter}
             setSearchRphFilter={setSearchRphFilter}
-            rphViewMode={rphViewMode}
-            setRphViewMode={setRphViewMode}
           />
 
-          {/* Section 3: Visual Bar Charts */}
+          {/* Section 3: Visual Bar Charts (Populasi Ternak & Unggas) */}
           <LandingChartsSection
             populasiTernak8={populasiTernak8}
             totalTernakHewan={totalTernakHewan}
@@ -299,12 +240,7 @@ export default function LandingPage() {
             populasiUnggas8={populasiUnggas8}
             totalUnggas={totalUnggas}
             maxUnggas={maxUnggas}
-            dataProduksiDaging={dataProduksiDaging}
-            totalProdDagingTon={totalProdDagingTon}
-            maxDagingTon={maxDagingTon}
-            dataProduksiTelur={dataProduksiTelur}
-            totalProdTelurTon={totalProdTelurTon}
-            maxTelurTon={maxTelurTon}
+            periodePopulasi={periodePopulasi}
           />
 
           {/* Section 4: Modul Pelayanan & Layanan Data */}
@@ -337,26 +273,7 @@ export default function LandingPage() {
       {/* 3. FOOTER */}
       <LandingFooter />
 
-      {/* 4. MODAL LOGIN PETUGAS */}
-      <LandingLoginModal
-        showLoginModal={showLoginModal}
-        setShowLoginModal={setShowLoginModal}
-        loginId={loginId}
-        setLoginId={setLoginId}
-        password={password}
-        setPassword={setPassword}
-        showPassword={showPassword}
-        setShowPassword={setShowPassword}
-        error={error}
-        isLoading={isLoading}
-        captchaToken={captchaToken}
-        setCaptchaToken={setCaptchaToken}
-        turnstileRef={turnstileRef}
-        isDark={isDark}
-        handleLogin={handleLogin}
-      />
-
-      {/* 5. FLOATING BACK TO TOP BUTTON (Mobile & Desktop) */}
+      {/* 4. FLOATING BACK TO TOP BUTTON (Mobile & Desktop) */}
       {showBackToTop && (
         <button
           onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
@@ -368,6 +285,18 @@ export default function LandingPage() {
         </button>
       )}
 
+      {/* 6. POP-UP BERITA TERBARU (SLIDE OTOMATIS & MANUAL) */}
+      <LandingNewsPopup
+        newsList={newsList}
+        onOpenDetail={(item) => setSelectedDetailNews(item)}
+      />
+
+      {/* 7. MODAL DETAIL FOTO FULL & NARASI BERITA */}
+      <LandingNewsDetailModal
+        newsItem={selectedDetailNews}
+        isOpen={!!selectedDetailNews}
+        onClose={() => setSelectedDetailNews(null)}
+      />
     </div>
   );
 }

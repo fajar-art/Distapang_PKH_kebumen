@@ -38,23 +38,20 @@ export default function VaksinasiBulananTab({
   openEditBulanan,
   deleteBulanan,
 }: VaksinasiBulananTabProps) {
-  const { isAdmin, isPuskeswanAllowed } = useUserAreaRestriction();
+  const { isAdmin, isUnrestricted, isPuskeswanAllowed } = useUserAreaRestriction();
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 className="font-extrabold text-base text-slate-900">
+          <h3 className="font-extrabold text-base text-slate-900 dark:text-white">
             Capaian Vaksinasi Per Puskeswan (Akumulasi Bulanan {selectedYear})
           </h3>
-          <p className="text-xs text-slate-600 font-semibold">
-            Target dan realisasi droping vaksin per puskeswan tahun {selectedYear} &bull; Klik kotak Target / Ambil untuk edit langsung
-          </p>
         </div>
         {isAdmin && (canCreate ?? canEdit) && (
           <button
             onClick={openAddBulanan}
-            className="min-h-touch h-10 px-4 rounded-xl bg-blue-600 text-white text-xs font-bold flex items-center gap-1.5 hover:bg-blue-700 transition-all shadow-xs cursor-pointer"
+            className="min-h-touch h-10 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
           >
             <Plus size={14} />
             <span>Tambah Puskeswan</span>
@@ -63,35 +60,41 @@ export default function VaksinasiBulananTab({
 
       </div>
 
-      <div className="border-2 border-slate-700 bg-white shadow-md rounded-xl overflow-hidden -mx-4 sm:mx-0">
+      <div className="rounded-2xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm overflow-hidden -mx-4 sm:mx-0">
         <div className="overflow-x-auto touch-pan-x">
           <table className="w-full text-xs text-left whitespace-nowrap border-collapse">
-            <thead className="bg-slate-200 text-slate-900 font-extrabold uppercase tracking-wider border-b-2 border-slate-700">
+            <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-800 dark:text-slate-200 font-extrabold uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
               <tr>
-                <th className="p-3 text-center w-12 sticky left-0 bg-slate-300 z-10 border-r-2 border-slate-500 font-black">NO</th>
-                <th className="p-3 sticky left-12 bg-slate-300 z-10 border-r-2 border-slate-700 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.15)] font-black">PUSKESWAN</th>
-                <th className="p-3 text-right font-sans border-r-2 border-slate-500 min-w-[100px] font-black">TARGET</th>
-                <th className="p-3 text-right font-sans border-r-2 border-slate-500 min-w-[100px] font-black">AMBIL</th>
-                <th className="p-3 text-right font-sans text-emerald-950 bg-emerald-100 font-black border-r-2 border-slate-500">REALISASI</th>
-                <th className="p-3 text-right font-sans text-rose-950 bg-rose-100 font-black border-r-2 border-slate-500">KURANG</th>
+                <th className="p-3 text-center w-12 border-r border-slate-200 dark:border-slate-700 font-bold">NO</th>
+                <th className="p-3 border-r border-slate-200 dark:border-slate-700 font-bold text-slate-900 dark:text-white">PUSKESWAN</th>
+                <th className="p-3 text-right font-sans border-r border-slate-200 dark:border-slate-700 min-w-[100px] font-bold">TARGET</th>
+                <th className="p-3 text-right font-sans border-r border-slate-200 dark:border-slate-700 min-w-[100px] font-bold">AMBIL</th>
+                <th className="p-3 text-right font-sans text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 font-bold border-r border-slate-200 dark:border-slate-700">REALISASI</th>
+                <th className="p-3 text-right font-sans text-rose-800 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 font-bold border-r border-slate-200 dark:border-slate-700">KURANG</th>
                 {BULAN_LABEL.slice(1).map((m) => (
-                  <th key={m} className="p-3 text-right font-sans border-r-2 border-slate-500 font-black">{m}</th>
+                  <th key={m} className="p-3 text-right font-sans border-r border-slate-200 dark:border-slate-700 font-bold">{m}</th>
                 ))}
-                {canEdit && <th className="p-3 text-center w-20 font-black">AKSI</th>}
+                {canEdit && <th className="p-3 text-center w-20 font-bold">AKSI</th>}
               </tr>
             </thead>
-            <tbody className="divide-y-2 divide-slate-400 text-slate-900 font-medium">
-              {bulanan.map(veraFormatVaksinasiRow).map((row) => {
-                const isAllowed = isAdmin || isPuskeswanAllowed(row.puskeswan);
+            <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-slate-800 dark:text-slate-200 font-medium">
+              {bulanan.map(veraFormatVaksinasiRow).map((row, idx) => {
+                const isAllowed = isAdmin || isUnrestricted || isPuskeswanAllowed(row.puskeswan);
                 const isEditingTarget = editingBulananCell?.id === row.id && editingBulananCell?.field === 'target';
                 const isEditingAmbil = editingBulananCell?.id === row.id && editingBulananCell?.field === 'pengambilan';
+                const isEven = idx % 2 === 0;
 
                 return (
-                  <tr key={row.id} className="hover:bg-blue-50/50 transition-colors border-b-2 border-slate-400">
-                    <td className="p-3 text-center font-black text-slate-700 sticky left-0 bg-slate-100 z-10 border-r-2 border-slate-500">
+                  <tr
+                    key={row.id}
+                    className={`transition-colors border-b border-slate-200 dark:border-slate-800 ${
+                      isEven ? 'bg-white dark:bg-slate-900/60 hover:bg-blue-50/40 dark:hover:bg-slate-800/60' : 'bg-slate-50/70 dark:bg-slate-800/40 hover:bg-blue-50/40 dark:hover:bg-slate-800/70'
+                    }`}
+                  >
+                    <td className="p-3 text-center font-bold text-slate-600 dark:text-slate-400 border-r border-slate-200 dark:border-slate-700">
                       {row.no_urut}
                     </td>
-                    <td className="p-3 font-black text-slate-950 sticky left-12 bg-white z-10 border-r-2 border-slate-700 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.12)]">
+                    <td className="p-3 font-bold text-slate-900 dark:text-white border-r border-slate-200 dark:border-slate-700">
                       {row.puskeswan}
                     </td>
 
@@ -104,8 +107,8 @@ export default function VaksinasiBulananTab({
                         }
                         startEditBulananCell(row.id, 'target', row.target);
                       }}
-                      className={`p-2 text-right font-sans border-r-2 border-slate-400 ${
-                        !isAllowed ? 'opacity-60 bg-slate-100/60 cursor-not-allowed' : 'cursor-pointer'
+                      className={`p-2 text-right font-sans border-r border-slate-200 dark:border-slate-700 ${
+                        !isAllowed ? 'opacity-60 bg-slate-100/60 dark:bg-slate-800/60 cursor-not-allowed' : 'cursor-pointer'
                       }`}
                     >
                       {isEditingTarget ? (
@@ -119,10 +122,10 @@ export default function VaksinasiBulananTab({
                             if (e.key === 'Enter') saveEditBulananCell();
                             else if (e.key === 'Escape') setEditingBulananCell(null);
                           }}
-                          className="w-24 text-right py-1 px-2 text-xs font-black border-2 border-blue-600 ring-2 ring-blue-300 rounded-md bg-white text-blue-900"
+                          className="w-24 text-right py-1 px-2 text-xs font-bold border-2 border-blue-600 ring-2 ring-blue-300 dark:ring-blue-800 rounded-md bg-white dark:bg-slate-900 text-blue-900 dark:text-blue-300"
                         />
                       ) : (
-                        <div className="py-1 px-2 rounded-md border-2 border-blue-500 bg-blue-50 font-black text-blue-950 hover:border-blue-700 hover:bg-blue-100 transition-all shadow-xs">
+                        <div className="py-1 px-2 rounded-md border border-blue-200 dark:border-blue-800 bg-blue-50/70 dark:bg-blue-950/40 font-bold text-blue-900 dark:text-blue-200 hover:border-blue-400 dark:hover:border-blue-700 hover:bg-blue-100/80 transition-all shadow-2xs">
                           {row.target.toLocaleString('id-ID')}
                         </div>
                       )}
@@ -137,8 +140,8 @@ export default function VaksinasiBulananTab({
                         }
                         startEditBulananCell(row.id, 'pengambilan', row.pengambilan);
                       }}
-                      className={`p-2 text-right font-sans border-r-2 border-slate-400 ${
-                        !isAllowed ? 'opacity-60 bg-slate-100/60 cursor-not-allowed' : 'cursor-pointer'
+                      className={`p-2 text-right font-sans border-r border-slate-200 dark:border-slate-700 ${
+                        !isAllowed ? 'opacity-60 bg-slate-100/60 dark:bg-slate-800/60 cursor-not-allowed' : 'cursor-pointer'
                       }`}
                     >
                       {isEditingAmbil ? (
@@ -152,45 +155,45 @@ export default function VaksinasiBulananTab({
                             if (e.key === 'Enter') saveEditBulananCell();
                             else if (e.key === 'Escape') setEditingBulananCell(null);
                           }}
-                          className="w-24 text-right py-1 px-2 text-xs font-black border-2 border-blue-600 ring-2 ring-blue-300 rounded-md bg-white text-blue-900"
+                          className="w-24 text-right py-1 px-2 text-xs font-bold border-2 border-blue-600 ring-2 ring-blue-300 dark:ring-blue-800 rounded-md bg-white dark:bg-slate-900 text-blue-900 dark:text-blue-300"
                         />
                       ) : (
-                        <div className="py-1 px-2 rounded-md border-2 border-blue-500 bg-blue-50 font-black text-blue-950 hover:border-blue-700 hover:bg-blue-100 transition-all shadow-xs">
+                        <div className="py-1 px-2 rounded-md border border-blue-200 dark:border-blue-800 bg-blue-50/70 dark:bg-blue-950/40 font-bold text-blue-900 dark:text-blue-200 hover:border-blue-400 dark:hover:border-blue-700 hover:bg-blue-100/80 transition-all shadow-2xs">
                           {row.pengambilan.toLocaleString('id-ID')}
                         </div>
                       )}
                     </td>
 
-                    <td className="p-3 text-right font-sans font-black text-emerald-950 bg-emerald-100/70 border-r-2 border-slate-400">
+                    <td className="p-3 text-right font-sans font-extrabold text-emerald-700 dark:text-emerald-400 bg-emerald-50/70 dark:bg-emerald-950/30 border-r border-slate-200 dark:border-slate-700">
                       {row.realisasi.toLocaleString('id-ID')}
                     </td>
-                    <td className="p-3 text-right font-sans font-black text-rose-950 bg-rose-100/70 border-r-2 border-slate-400">
+                    <td className="p-3 text-right font-sans font-extrabold text-rose-700 dark:text-rose-400 bg-rose-50/70 dark:bg-rose-950/30 border-r border-slate-200 dark:border-slate-700">
                       {row.kekurangan.toLocaleString('id-ID')}
                     </td>
                     {BULAN_KEY.map((k) => (
-                      <td key={k} className="p-3 text-right font-sans border-r-2 border-slate-400 font-bold">
+                      <td key={k} className="p-3 text-right font-sans border-r border-slate-200 dark:border-slate-700 font-bold">
                         {n(row[k]) > 0 ? n(row[k]).toLocaleString('id-ID') : '-'}
                       </td>
                     ))}
                     {canEdit && (
-                      <td className="p-3 text-center border-l-2 border-slate-400">
+                      <td className="p-3 text-center border-l border-slate-200 dark:border-slate-700">
                         {isAllowed ? (
                           <div className="flex items-center justify-center gap-1">
                             <button
                               onClick={() => openEditBulanan(row)}
-                              className="h-7 w-7 border border-slate-300 bg-white text-slate-700 hover:bg-blue-50 hover:text-blue-600 flex items-center justify-center cursor-pointer"
+                              className="h-7 w-7 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 hover:text-blue-600 flex items-center justify-center cursor-pointer transition-colors"
                             >
                               <Edit2 size={12} />
                             </button>
                             <button
                               onClick={() => deleteBulanan(row)}
-                              className="h-7 w-7 border border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100 flex items-center justify-center cursor-pointer"
+                              className="h-7 w-7 rounded-lg border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/60 flex items-center justify-center cursor-pointer transition-colors"
                             >
                               <Trash2 size={12} />
                             </button>
                           </div>
                         ) : (
-                          <span className="text-[10px] text-slate-400 font-semibold">-</span>
+                          <span className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold">-</span>
                         )}
                       </td>
                     )}
@@ -199,18 +202,18 @@ export default function VaksinasiBulananTab({
               })}
 
               {/* Total Row */}
-              <tr className="bg-slate-200 font-black text-slate-900 border-t-2 border-slate-400">
-                <td colSpan={2} className="p-3 text-center sticky left-0 bg-slate-200 z-10 border-r-2 border-slate-400">
+              <tr className="bg-slate-100 dark:bg-slate-800/90 font-extrabold text-slate-900 dark:text-white border-t border-slate-300 dark:border-slate-700">
+                <td colSpan={2} className="p-3 text-center border-r border-slate-200 dark:border-slate-700">
                   JUMLAH TOTAL
                 </td>
-                <td className="p-3 text-right font-sans border-r border-slate-300">{totalBulanan.target.toLocaleString('id-ID')}</td>
-                <td className="p-3 text-right font-sans border-r border-slate-300">{totalBulanan.pengambilan.toLocaleString('id-ID')}</td>
-                <td className="p-3 text-right font-sans text-emerald-900 border-r border-slate-300">{totalBulanan.realisasi.toLocaleString('id-ID')}</td>
-                <td className="p-3 text-right font-sans text-rose-800 border-r border-slate-300">{totalBulanan.kekurangan.toLocaleString('id-ID')}</td>
+                <td className="p-3 text-right font-sans border-r border-slate-200 dark:border-slate-700">{totalBulanan.target.toLocaleString('id-ID')}</td>
+                <td className="p-3 text-right font-sans border-r border-slate-200 dark:border-slate-700">{totalBulanan.pengambilan.toLocaleString('id-ID')}</td>
+                <td className="p-3 text-right font-sans text-emerald-700 dark:text-emerald-400 border-r border-slate-200 dark:border-slate-700">{totalBulanan.realisasi.toLocaleString('id-ID')}</td>
+                <td className="p-3 text-right font-sans text-rose-700 dark:text-rose-400 border-r border-slate-200 dark:border-slate-700">{totalBulanan.kekurangan.toLocaleString('id-ID')}</td>
                 {BULAN_KEY.map((k) => {
                   const sumM = bulanan.reduce((sum, r) => sum + n(r[k]), 0);
                   return (
-                    <td key={k} className="p-3 text-right font-sans border-r border-slate-300">
+                    <td key={k} className="p-3 text-right font-sans border-r border-slate-200 dark:border-slate-700">
                       {sumM > 0 ? sumM.toLocaleString('id-ID') : '-'}
                     </td>
                   );

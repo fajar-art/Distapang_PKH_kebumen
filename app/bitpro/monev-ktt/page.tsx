@@ -16,6 +16,7 @@ import {
   Layers,
   Activity,
   Egg,
+  ChevronDown,
 } from 'lucide-react';
 import {
   DAFTAR_TAHUN,
@@ -28,6 +29,7 @@ import {
   FieldData,
   FORM_KOSONG,
   getPuskeswanByKecamatan,
+  DAFTAR_PUSKESWAN_BINAAN,
   rezaFormatMonevRecord,
 } from '@/components/bitpro/monev-ktt/types';
 import { MonevFormTab } from '@/components/bitpro/monev-ktt/MonevFormTab';
@@ -35,6 +37,7 @@ import { MonevUnggasTab } from '@/components/bitpro/monev-ktt/MonevUnggasTab';
 import { MonevDashboardTab } from '@/components/bitpro/monev-ktt/MonevDashboardTab';
 import { MonevCameraModal, MonevPreviewPhotoModal } from '@/components/bitpro/monev-ktt/MonevModals';
 import { UniversalAuditModal } from '@/components/common/UniversalAuditModal';
+import { showToast, showConfirm } from '@/components/common/CustomToast';
 
 export default function MonevKTT() {
   const { isReady, canCreate, canEdit, isAdmin } = usePageAuth('bitpro', 'monev-ktt');
@@ -57,8 +60,27 @@ export default function MonevKTT() {
   const [daftarTahun, setDaftarTahun] = useState<string[]>(DAFTAR_TAHUN);
   const [tahunBantuanFilter, setTahunBantuanFilter] = useState('2026');
 
-  // Filter Dropdown Peta & Laporan Lapangan
+  // Filter Wilayah Binaan (Puskeswan) & Peta
+  const [filterPuskeswan, setFilterPuskeswan] = useState<string>('Semua Wilayah Binaan');
   const [filterPetaKecamatan, setFilterPetaKecamatan] = useState('Semua');
+
+  // Export Dropdown State
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
+        setIsExportMenuOpen(false);
+      }
+    }
+    if (isExportMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isExportMenuOpen]);
 
   const [dbLapangan, setDbLapangan] = useState<FieldData[]>([]);
 
@@ -118,6 +140,7 @@ export default function MonevKTT() {
   };
 
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const formSectionRef = useRef<HTMLDivElement>(null);
 
   // Kamera State
@@ -291,11 +314,19 @@ export default function MonevKTT() {
     };
   }, []);
 
-  // Filter Data untuk Peta Sesuai Dropdown Kecamatan
+  // Filter Data untuk Peta Sesuai Dropdown Wilayah Binaan & Kecamatan
   const dbLapanganUntukPeta = useMemo(() => {
-    if (filterPetaKecamatan === 'Semua') return dbLapangan;
-    return dbLapangan.filter((d) => d.kec === filterPetaKecamatan);
-  }, [dbLapangan, filterPetaKecamatan]);
+    return dbLapangan.filter((d) => {
+      if (filterPuskeswan !== 'Semua Wilayah Binaan' && filterPuskeswan !== 'Semua') {
+        const puskeswanItem = getPuskeswanByKecamatan(d.kec);
+        if (puskeswanItem !== filterPuskeswan) return false;
+      }
+      if (filterPetaKecamatan !== 'Semua') {
+        if (d.kec !== filterPetaKecamatan) return false;
+      }
+      return true;
+    });
+  }, [dbLapangan, filterPuskeswan, filterPetaKecamatan]);
 
   // Inisialisasi Peta Leaflet
   useEffect(() => {
@@ -370,12 +401,21 @@ export default function MonevKTT() {
     }
   }, [dbLapanganUntukPeta, leafletLoaded, activeTab]);
 
-  const handleDownloadDashboard = () => {
-    const dataToExport = (tahunBantuanFilter && tahunBantuanFilter !== 'Semua Tahun')
+  const handleDownloadDashboard = (targetPuskeswan?: string) => {
+    const selectedPusk = targetPuskeswan !== undefined ? targetPuskeswan : filterPuskeswan;
+
+    let dataToExport = (tahunBantuanFilter && tahunBantuanFilter !== 'Semua Tahun')
       ? dbLapanganFiltered
       : dbLapangan;
 
-    if (dataToExport.length === 0) return alert('Belum ada data lapangan untuk diekspor!');
+    if (selectedPusk && selectedPusk !== 'Semua Wilayah Binaan' && selectedPusk !== 'Semua') {
+      dataToExport = dataToExport.filter((d) => getPuskeswanByKecamatan(d.kec) === selectedPusk);
+    }
+
+    if (dataToExport.length === 0) {
+      alert(`Belum ada data lapangan untuk diekspor (${selectedPusk || 'Semua Wilayah'} - Tahun ${tahunBantuanFilter})!`);
+      return;
+    }
 
     // ── TABEL 1: DATA LENGKAP MONITORING & EVALUASI ──
     const rows = dataToExport.map((d, i) => {
@@ -510,8 +550,10 @@ export default function MonevKTT() {
     XLSX.utils.book_append_sheet(wb, ws, 'Monev_KTT');
     XLSX.utils.book_append_sheet(wb, ws2, 'Kondisi_Terkini_Ternak');
 
-    const yearSuffix = (tahunBantuanFilter && tahunBantuanFilter !== 'Semua Tahun') ? `_${tahunBantuanFilter}` : '';
-    XLSX.writeFile(wb, `Laporan_Monev_KTT${yearSuffix}_${new Date().toISOString().split('T')[0]}.xlsx`);
+    const sanitizePart = (s: string) => (s || 'Semua').trim().replace(/[^a-zA-Z0-9]+/g, '_');
+    const yearSuffix = (tahunBantuanFilter && tahunBantuanFilter !== 'Semua Tahun') ? `_${sanitizePart(tahunBantuanFilter)}` : '';
+    const puskSuffix = (selectedPusk && selectedPusk !== 'Semua Wilayah Binaan' && selectedPusk !== 'Semua') ? `_${sanitizePart(selectedPusk)}` : '';
+    XLSX.writeFile(wb, `Laporan_Monev_KTT${yearSuffix}${puskSuffix}_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   const handleGetLocation = () => {
@@ -651,6 +693,7 @@ export default function MonevKTT() {
 
   const handleSubmitLapangan = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSaving) return;
     if (!formKec || !formDesa || !formKtt) return alert('Mohon lengkapi data kelompok!');
 
     const isEdit = !!editingId;
@@ -696,6 +739,7 @@ export default function MonevKTT() {
       isEdit,
     };
 
+    setIsSaving(true);
     try {
       await fetch('/api/monev-lapangan', {
         method: 'POST',
@@ -707,6 +751,8 @@ export default function MonevKTT() {
       resetForm();
     } catch {
       alert('Gagal menyimpan data ke database.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -754,16 +800,25 @@ export default function MonevKTT() {
 
   const handleDeleteClick = async (id: string) => {
     if (!canEdit) {
-      alert('Hanya Administrator yang berhak menghapus data.');
+      showToast.error('Hanya Administrator yang berhak menghapus data.');
       return;
     }
-    if (!confirm('Yakin ingin menghapus data lapangan ini?')) return;
+    const ok = await showConfirm({
+      title: 'Hapus Data Lapangan',
+      message: 'Yakin ingin menghapus data lapangan ini?',
+      confirmText: 'Ya, Hapus',
+      cancelText: 'Batal',
+      type: 'danger',
+    });
+    if (!ok) return;
+
     try {
       await fetch(`/api/monev-lapangan?id=${id}`, { method: 'DELETE' });
+      showToast.success('Data lapangan berhasil dihapus.');
       await fetchDatabase();
       if (editingId === id) resetForm();
     } catch {
-      alert('Gagal menghapus data.');
+      showToast.error('Gagal menghapus data.');
     }
   };
 
@@ -796,9 +851,9 @@ export default function MonevKTT() {
   const kecamatanTerpakai = Array.from(new Set(dbLapangan.map((d) => d.kec))).sort();
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-emerald-600 selection:text-white pb-20">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans selection:bg-emerald-600 selection:text-white pb-20">
       {/* ── TOP HEADER (Tema Hijau Bitpro - Solid Icons) ── */}
-      <header className="border-b border-emerald-100 bg-white/95 backdrop-blur-md sticky top-0 z-30 shadow-xs">
+      <header className="border-b border-emerald-100 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md sticky top-0 z-30 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 min-h-[80px] sm:min-h-[88px] flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <Link
@@ -811,28 +866,92 @@ export default function MonevKTT() {
 
             <div className="min-w-0">
               <div className="flex items-center gap-2 mb-0.5">
-                <Link href="/bitpro" className="text-xs font-semibold text-slate-500 hover:text-emerald-700 transition-colors truncate">
+                <Link href="/bitpro" className="text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors truncate">
                   Bitpro
                 </Link>
-                <span className="text-slate-300">/</span>
-                <span className="text-xs font-bold text-emerald-700 whitespace-nowrap">Monev KTT</span>
+                <span className="text-slate-300 dark:text-slate-600">/</span>
+                <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">Monev KTT</span>
               </div>
-              <h1 className="text-sm sm:text-xl font-bold text-slate-900 tracking-tight leading-tight line-clamp-2 sm:line-clamp-none">
+              <h1 className="text-sm sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight line-clamp-2 sm:line-clamp-none">
                 Monitoring &amp; Evaluasi Kelompok Tani Ternak
               </h1>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="relative shrink-0" ref={exportMenuRef}>
             <button
-              onClick={handleDownloadDashboard}
-              title="Export Excel"
-              aria-label="Export Excel"
-              className="min-h-touch min-w-touch h-11 w-11 sm:w-auto sm:px-5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold flex items-center justify-center sm:gap-2 transition-all active:scale-95 shadow-xs cursor-pointer"
+              onClick={() => setIsExportMenuOpen((prev) => !prev)}
+              title="Pilihan Export Excel"
+              aria-label="Pilihan Export Excel"
+              className="min-h-touch min-w-touch h-11 px-3 sm:px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-xs cursor-pointer"
             >
               <Download size={16} strokeWidth={2.5} />
               <span className="hidden sm:inline">Export Excel</span>
+              <ChevronDown size={14} className={`transition-transform duration-200 ${isExportMenuOpen ? 'rotate-180' : ''}`} />
             </button>
+
+            {isExportMenuOpen && (
+              <div className="absolute right-0 top-full mt-2 w-72 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl z-50 p-2 space-y-1 animate-in fade-in zoom-in-95 duration-150">
+                <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800">
+                  <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Opsi Unduh Excel
+                  </p>
+                  <p className="text-xs text-slate-700 dark:text-slate-300 font-medium truncate">
+                    Filter: {tahunBantuanFilter} · {filterPuskeswan}
+                  </p>
+                </div>
+
+                {/* Unduh Sesuai Filter Aktif */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsExportMenuOpen(false);
+                    handleDownloadDashboard();
+                  }}
+                  className="w-full text-left px-3 py-2 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/50 text-xs font-bold text-emerald-700 dark:text-emerald-400 flex items-center justify-between transition-colors cursor-pointer"
+                >
+                  <span className="truncate">📊 Unduh Sesuai Filter Aktif</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-extrabold shrink-0">Aktif</span>
+                </button>
+
+                {/* Unduh Semua Data */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsExportMenuOpen(false);
+                    handleDownloadDashboard('Semua Wilayah Binaan');
+                  }}
+                  className="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center justify-between transition-colors cursor-pointer"
+                >
+                  <span>🏥 Seluruh Wilayah Binaan</span>
+                  <span className="text-[10px] text-slate-400 font-medium shrink-0">{dbLapanganFiltered.length} Data</span>
+                </button>
+
+                <div className="px-3 pt-2 pb-1 border-t border-slate-100 dark:border-slate-800 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                  Unduh Khusus per Wilayah Binaan:
+                </div>
+
+                <div className="max-h-48 overflow-y-auto space-y-0.5 pr-1">
+                  {DAFTAR_PUSKESWAN_BINAAN.map((p) => {
+                    const count = dbLapanganFiltered.filter((d) => getPuskeswanByKecamatan(d.kec) === p).length;
+                    return (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => {
+                          setIsExportMenuOpen(false);
+                          handleDownloadDashboard(p);
+                        }}
+                        className="w-full text-left px-3 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-300 flex items-center justify-between transition-colors cursor-pointer"
+                      >
+                        <span className="truncate">{p}</span>
+                        <span className="text-[11px] text-slate-400 font-bold shrink-0">{count}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -841,57 +960,57 @@ export default function MonevKTT() {
       <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-4 sm:pt-10 pb-28 sm:pb-12 space-y-6 sm:space-y-8">
         {/* KPI Stat Cards (Solid Icon Styling) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          <div className="p-3.5 sm:p-5 rounded-2xl border border-slate-200 bg-white shadow-sm flex items-center gap-3.5 sm:gap-4">
+          <div className="p-3.5 sm:p-5 rounded-2xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm flex items-center gap-3.5 sm:gap-4">
             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
               <Calendar className="w-5 h-5 sm:w-[22px] sm:h-[22px]" strokeWidth={2.5} />
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-sans font-semibold uppercase tracking-wider text-slate-500 mb-0.5 truncate">
+              <p className="text-xs font-sans font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-0.5 truncate">
                 Kelompok Terpantau
               </p>
-              <p className="font-sans text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900">
+              <p className="font-sans text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 dark:text-white">
                 {dbLapangan.length} <span className="text-xs font-semibold text-slate-400">KTT</span>
               </p>
             </div>
           </div>
 
-          <div className="p-3.5 sm:p-5 rounded-2xl border border-slate-200 bg-white shadow-sm flex items-center gap-3.5 sm:gap-4">
+          <div className="p-3.5 sm:p-5 rounded-2xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm flex items-center gap-3.5 sm:gap-4">
             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
               <Layers className="w-5 h-5 sm:w-[22px] sm:h-[22px]" strokeWidth={2.5} />
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-sans font-semibold uppercase tracking-wider text-slate-500 mb-0.5 truncate">
+              <p className="text-xs font-sans font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-0.5 truncate">
                 Total Aset Ternak
               </p>
-              <p className="font-sans text-xl sm:text-2xl lg:text-3xl font-extrabold text-emerald-700">
+              <p className="font-sans text-xl sm:text-2xl lg:text-3xl font-extrabold text-emerald-700 dark:text-emerald-400">
                 {dbLapangan.reduce((acc, curr) => acc + hitungKondisi(curr.kondisi).i, 0)} <span className="text-xs font-semibold text-slate-400">Ekor</span>
               </p>
             </div>
           </div>
 
-          <div className="p-3.5 sm:p-5 rounded-2xl border border-slate-200 bg-white shadow-sm flex items-center gap-3.5 sm:gap-4">
+          <div className="p-3.5 sm:p-5 rounded-2xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm flex items-center gap-3.5 sm:gap-4">
             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
               <MapPin className="w-5 h-5 sm:w-[22px] sm:h-[22px]" strokeWidth={2.5} />
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-sans font-semibold uppercase tracking-wider text-slate-500 mb-0.5 truncate">
+              <p className="text-xs font-sans font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-0.5 truncate">
                 Sebaran Kecamatan
               </p>
-              <p className="font-sans text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900">
+              <p className="font-sans text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 dark:text-white">
                 {kecamatanTerpakai.length} <span className="text-xs font-semibold text-slate-400">Wilayah</span>
               </p>
             </div>
           </div>
 
-          <div className="p-3.5 sm:p-5 rounded-2xl border border-slate-200 bg-white shadow-sm flex items-center gap-3.5 sm:gap-4">
+          <div className="p-3.5 sm:p-5 rounded-2xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm flex items-center gap-3.5 sm:gap-4">
             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
               <CheckCircle2 className="w-5 h-5 sm:w-[22px] sm:h-[22px]" strokeWidth={2.5} />
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-sans font-semibold uppercase tracking-wider text-slate-500 mb-0.5 truncate">
+              <p className="text-xs font-sans font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-0.5 truncate">
                 Terverifikasi GPS
               </p>
-              <p className="font-sans text-xl sm:text-2xl lg:text-3xl font-extrabold text-emerald-700">
+              <p className="font-sans text-xl sm:text-2xl lg:text-3xl font-extrabold text-emerald-700 dark:text-emerald-400">
                 {dbLapangan.filter((d) => d.lat !== null).length} <span className="text-xs font-semibold text-slate-400">Titik</span>
               </p>
             </div>
@@ -899,7 +1018,7 @@ export default function MonevKTT() {
         </div>
 
         {/* ── 3 VIEW TABS: RUMINANSIA (TAB 1), UNGGAS (TAB 2), PETA & LAPORAN (TAB 3) ── */}
-        <div className="flex gap-2 border-b border-slate-200 pb-px overflow-x-auto no-scrollbar scroll-smooth -mx-4 px-4 sm:mx-0 sm:px-0">
+        <div className="flex gap-2 border-b border-slate-300 dark:border-slate-800 pb-px overflow-x-auto no-scrollbar scroll-smooth -mx-4 px-4 sm:mx-0 sm:px-0">
           {[
             ...((canCreate || canEdit)
               ? [
@@ -917,8 +1036,8 @@ export default function MonevKTT() {
                 onClick={() => setActiveTab(tab.key as any)}
                 className={`min-h-touch h-11 px-4 sm:px-6 rounded-t-xl text-xs sm:text-sm font-bold flex items-center gap-2 border-t border-x transition-all shrink-0 whitespace-nowrap cursor-pointer ${
                   active
-                    ? 'bg-white border-slate-200 text-emerald-700 border-b-white translate-y-px shadow-xs'
-                    : 'border-transparent text-slate-500 hover:text-slate-900 bg-slate-100/60'
+                    ? 'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-800 text-emerald-700 dark:text-emerald-400 border-b-white dark:border-b-slate-900 translate-y-px shadow-xs'
+                    : 'border-transparent text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white bg-slate-100/60 dark:bg-slate-800/40'
                 }`}
               >
                 <Icon size={16} strokeWidth={2.5} />
@@ -935,6 +1054,8 @@ export default function MonevKTT() {
             tahunBantuanFilter={tahunBantuanFilter}
             onSelectTahunBantuan={handleSelectTahunBantuan}
             daftarTahunAktif={daftarTahunAktif}
+            filterPuskeswan={filterPuskeswan}
+            setFilterPuskeswan={setFilterPuskeswan}
             editingId={editingId}
             formTahun={formTahun}
             setFormTahun={setFormTahun}
@@ -989,6 +1110,7 @@ export default function MonevKTT() {
               setShowAuditModal(true);
             }}
             kttMasterList={kttMasterList}
+            isSaving={isSaving}
           />
         )}
 
@@ -998,6 +1120,8 @@ export default function MonevKTT() {
             tahunBantuanFilter={tahunBantuanFilter}
             onSelectTahunBantuan={handleSelectTahunBantuan}
             daftarTahunAktif={daftarTahunAktif}
+            filterPuskeswan={filterPuskeswan}
+            setFilterPuskeswan={setFilterPuskeswan}
             dbLapangan={dbLapangan}
             canEdit={canEdit}
             onSaveUnggas={handleSaveUnggas}
@@ -1019,6 +1143,8 @@ export default function MonevKTT() {
             dbLapanganUntukPeta={dbLapanganUntukPeta}
             filterPetaKecamatan={filterPetaKecamatan}
             setFilterPetaKecamatan={setFilterPetaKecamatan}
+            filterPuskeswan={filterPuskeswan}
+            setFilterPuskeswan={setFilterPuskeswan}
             kecamatanTerpakai={kecamatanTerpakai}
             setPreviewPhotoModal={setPreviewPhotoModal}
             canEdit={canEdit}

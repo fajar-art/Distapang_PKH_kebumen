@@ -1,12 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,600&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   html, body {
-    font-family: 'Poppins', var(--font-sans), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: var(--font-sans), 'Poppins', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
 
   :root {
@@ -111,17 +109,21 @@ header div.flex.items-center.gap-1\.5.mb-0\.5 {
 /* ── UNIVERSAL DARK MODE UNTUK SUBMENU & TABEL ── */
 html.dark,
 html.dark body,
-body.dark {
+body.dark,
+html.dark .min-h-screen,
+body.dark .min-h-screen,
+html.dark [class*="min-h-screen"],
+body.dark [class*="min-h-screen"] {
   background-color: #090a0f !important;
   color: #f1f5f9 !important;
 }
 
 /* Base card, containers & white / slate variants */
-html.dark .bg-slate-50,
+html.dark .bg-slate-50:not([class*="min-h-screen"]),
 html.dark .bg-white,
 html.dark [class^="bg-white/"],
 html.dark [class*=" bg-white/"],
-body.dark .bg-slate-50,
+body.dark .bg-slate-50:not([class*="min-h-screen"]),
 body.dark .bg-white,
 body.dark [class^="bg-white/"],
 body.dark [class*=" bg-white/"] {
@@ -303,76 +305,76 @@ body.dark [class*="text-sky-900"] {
 }
 
 /* ── PERBAIKAN WARNA LATAR PASTEL AGAR TIDAK MENABRAK PUTIH ── */
-html.dark [class*="bg-emerald-50"],
-html.dark [class*="bg-emerald-100"],
-html.dark [class*="bg-emerald-200"],
-body.dark [class*="bg-emerald-50"],
-body.dark [class*="bg-emerald-100"],
-body.dark [class*="bg-emerald-200"] {
+html.dark [class*="bg-emerald-50"]:not([class*="min-h-screen"]),
+html.dark [class*="bg-emerald-100"]:not([class*="min-h-screen"]),
+html.dark [class*="bg-emerald-200"]:not([class*="min-h-screen"]),
+body.dark [class*="bg-emerald-50"]:not([class*="min-h-screen"]),
+body.dark [class*="bg-emerald-100"]:not([class*="min-h-screen"]),
+body.dark [class*="bg-emerald-200"]:not([class*="min-h-screen"]) {
   background-color: rgba(6, 78, 59, 0.45) !important;
   color: #6ee7b7 !important;
   border-color: rgba(16, 185, 129, 0.4) !important;
 }
 
-html.dark [class*="bg-blue-50"],
-html.dark [class*="bg-blue-100"],
-html.dark [class*="bg-blue-200"],
-body.dark [class*="bg-blue-50"],
-body.dark [class*="bg-blue-100"],
-body.dark [class*="bg-blue-200"] {
+html.dark [class*="bg-blue-50"]:not([class*="min-h-screen"]),
+html.dark [class*="bg-blue-100"]:not([class*="min-h-screen"]),
+html.dark [class*="bg-blue-200"]:not([class*="min-h-screen"]),
+body.dark [class*="bg-blue-50"]:not([class*="min-h-screen"]),
+body.dark [class*="bg-blue-100"]:not([class*="min-h-screen"]),
+body.dark [class*="bg-blue-200"]:not([class*="min-h-screen"]) {
   background-color: rgba(30, 58, 138, 0.45) !important;
   color: #93c5fd !important;
   border-color: rgba(59, 130, 246, 0.4) !important;
 }
 
-html.dark [class*="bg-purple-50"],
-html.dark [class*="bg-purple-100"],
-html.dark [class*="bg-purple-200"],
-body.dark [class*="bg-purple-50"],
-body.dark [class*="bg-purple-100"],
-body.dark [class*="bg-purple-200"] {
+html.dark [class*="bg-purple-50"]:not([class*="min-h-screen"]),
+html.dark [class*="bg-purple-100"]:not([class*="min-h-screen"]),
+html.dark [class*="bg-purple-200"]:not([class*="min-h-screen"]),
+body.dark [class*="bg-purple-50"]:not([class*="min-h-screen"]),
+body.dark [class*="bg-purple-100"]:not([class*="min-h-screen"]),
+body.dark [class*="bg-purple-200"]:not([class*="min-h-screen"]) {
   background-color: rgba(88, 28, 135, 0.45) !important;
   color: #d8b4fe !important;
   border-color: rgba(168, 85, 247, 0.4) !important;
 }
 
-html.dark [class*="bg-amber-50"],
-html.dark [class*="bg-amber-100"],
-html.dark [class*="bg-amber-200"],
-body.dark [class*="bg-amber-50"],
-body.dark [class*="bg-amber-100"],
-body.dark [class*="bg-amber-200"] {
+html.dark [class*="bg-amber-50"]:not([class*="min-h-screen"]),
+html.dark [class*="bg-amber-100"]:not([class*="min-h-screen"]),
+html.dark [class*="bg-amber-200"]:not([class*="min-h-screen"]),
+body.dark [class*="bg-amber-50"]:not([class*="min-h-screen"]),
+body.dark [class*="bg-amber-100"]:not([class*="min-h-screen"]),
+body.dark [class*="bg-amber-200"]:not([class*="min-h-screen"]) {
   background-color: rgba(120, 53, 15, 0.45) !important;
   color: #fcd34d !important;
   border-color: rgba(245, 158, 11, 0.4) !important;
 }
 
-html.dark [class*="bg-rose-50"],
-html.dark [class*="bg-rose-100"],
-html.dark [class*="bg-red-50"],
-html.dark [class*="bg-red-100"],
-body.dark [class*="bg-rose-50"],
-body.dark [class*="bg-rose-100"],
-body.dark [class*="bg-red-50"],
-body.dark [class*="bg-red-100"] {
+html.dark [class*="bg-rose-50"]:not([class*="min-h-screen"]),
+html.dark [class*="bg-rose-100"]:not([class*="min-h-screen"]),
+html.dark [class*="bg-red-50"]:not([class*="min-h-screen"]),
+html.dark [class*="bg-red-100"]:not([class*="min-h-screen"]),
+body.dark [class*="bg-rose-50"]:not([class*="min-h-screen"]),
+body.dark [class*="bg-rose-100"]:not([class*="min-h-screen"]),
+body.dark [class*="bg-red-50"]:not([class*="min-h-screen"]),
+body.dark [class*="bg-red-100"]:not([class*="min-h-screen"]) {
   background-color: rgba(153, 27, 27, 0.45) !important;
   color: #fca5a5 !important;
   border-color: rgba(239, 68, 68, 0.4) !important;
 }
 
-html.dark [class*="bg-sky-50"],
-html.dark [class*="bg-sky-100"],
-body.dark [class*="bg-sky-50"],
-body.dark [class*="bg-sky-100"] {
+html.dark [class*="bg-sky-50"]:not([class*="min-h-screen"]),
+html.dark [class*="bg-sky-100"]:not([class*="min-h-screen"]),
+body.dark [class*="bg-sky-50"]:not([class*="min-h-screen"]),
+body.dark [class*="bg-sky-100"]:not([class*="min-h-screen"]) {
   background-color: rgba(12, 74, 110, 0.45) !important;
   color: #7dd3fc !important;
   border-color: rgba(14, 165, 233, 0.4) !important;
 }
 
-html.dark [class*="bg-indigo-50"],
-html.dark [class*="bg-indigo-100"],
-body.dark [class*="bg-indigo-50"],
-body.dark [class*="bg-indigo-100"] {
+html.dark [class*="bg-indigo-50"]:not([class*="min-h-screen"]),
+html.dark [class*="bg-indigo-100"]:not([class*="min-h-screen"]),
+body.dark [class*="bg-indigo-50"]:not([class*="min-h-screen"]),
+body.dark [class*="bg-indigo-100"]:not([class*="min-h-screen"]) {
   background-color: rgba(49, 46, 129, 0.45) !important;
   color: #a5b4fc !important;
   border-color: rgba(99, 102, 241, 0.4) !important;
@@ -401,10 +403,39 @@ html.dark div[style*="background-color: rgb(243, 244, 246)"] {
 }
 
 /* Headers & App Bar */
-html.dark header,
-body.dark header {
+html.dark:not(:has(.login-isolated-clean)) header,
+body.dark:not(:has(.login-isolated-clean)) header {
   background-color: #0f172a !important;
   border-color: #1e293b !important;
+}
+
+/* ── ISOLASI HALAMAN LOGIN AGAR SELALU BERSIH & SERAGAM ── */
+.login-isolated-clean header {
+  background-color: transparent !important;
+  border-color: transparent !important;
+}
+.login-isolated-clean .login-card {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  color: #0f172a !important;
+  border-color: rgba(255, 255, 255, 0.7) !important;
+}
+.login-isolated-clean .login-card h1,
+.login-isolated-clean .login-card h2,
+.login-isolated-clean .login-card label {
+  color: #0f172a !important;
+}
+.login-isolated-clean .login-card p {
+  color: #64748b !important;
+}
+.login-isolated-clean .login-card input {
+  background-color: rgba(248, 250, 252, 0.95) !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
+}
+.login-isolated-clean .login-back-btn {
+  background-color: rgba(255, 255, 255, 0.92) !important;
+  color: #1e293b !important;
+  border-color: rgba(255, 255, 255, 0.8) !important;
 }
 
 /* Tables, Thead, Tfoot, Td, Tr */
@@ -492,8 +523,9 @@ body.dark .divide-slate-300 {
    KECUALI: Portal Publik (.public-portal) tidak terpengaruh sama sekali.
    ========================================================================== */
 
-/* 1. Basis Body Internal: Bobot Medium (500) */
+/* 1. Basis Body Internal: Bobot Medium (500) & Font Sans Fallback */
 body:not(:has(.public-portal)) {
+  font-family: var(--font-sans), 'Poppins', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-weight: 500;
   letter-spacing: -0.01em;
   -webkit-font-smoothing: antialiased;
@@ -508,54 +540,74 @@ body:not(:has(.public-portal)) li {
   font-weight: 500;
 }
 
-/* 3. Judul / Heading: Lebih Pekat dan Tebal (Bold 700 - 800) */
-body:not(:has(.public-portal)) h1,
-body:not(:has(.public-portal)) h2,
-body:not(:has(.public-portal)) h3,
-body:not(:has(.public-portal)) h4,
-body:not(:has(.public-portal)) h5,
-body:not(:has(.public-portal)) h6 {
-  font-weight: 700 !important;
+/* 3. Judul / Heading: Default Tebal (Bold 700) & Pekat dengan Spesifisitas 0 (:where)
+   Memungkinkan kelas Tailwind (seperti text-slate-900, dark:text-white, text-white, font-black)
+   bekerja 100% alami tanpa saling menabrak */
+:where(body:not(:has(.public-portal))) :where(h1, h2, h3, h4, h5, h6) {
+  font-family: inherit;
+  font-weight: 700;
   color: #0f172a;
 }
-html.dark body:not(:has(.public-portal)) h1,
-html.dark body:not(:has(.public-portal)) h2,
-html.dark body:not(:has(.public-portal)) h3,
-html.dark body:not(:has(.public-portal)) h4,
-html.dark body:not(:has(.public-portal)) h5,
-html.dark body:not(:has(.public-portal)) h6 {
-  color: #f8fafc !important;
+:where(html.dark body:not(:has(.public-portal))) :where(h1, h2, h3, h4, h5, h6) {
+  color: #f8fafc;
+}
+
+/* Memastikan kelas utilitas bobot font Tailwind (Black 900, ExtraBold 800, Light 300, dll) berlaku penuh */
+body:not(:has(.public-portal)) .font-black {
+  font-weight: 900 !important;
+}
+body:not(:has(.public-portal)) .font-extrabold {
+  font-weight: 800 !important;
+}
+body:not(:has(.public-portal)) .font-bold {
+  font-weight: 700 !important;
+}
+body:not(:has(.public-portal)) .font-semibold {
+  font-weight: 600 !important;
+}
+body:not(:has(.public-portal)) .font-medium {
+  font-weight: 500 !important;
+}
+body:not(:has(.public-portal)) .font-normal {
+  font-weight: 400 !important;
+}
+body:not(:has(.public-portal)) .font-light {
+  font-weight: 300 !important;
 }
 
 /* 4. Tabel Data (Sangat Krusial untuk Pembacaan Angka & Dokumen) */
-body:not(:has(.public-portal)) table th {
-  font-weight: 700 !important;
-  color: #0f172a !important;
+:where(body:not(:has(.public-portal))) :where(table th) {
+  font-weight: 700;
+  color: #0f172a;
   letter-spacing: 0.025em;
 }
-html.dark body:not(:has(.public-portal)) table th {
-  color: #f1f5f9 !important;
+:where(html.dark body:not(:has(.public-portal))) :where(table th) {
+  color: #f1f5f9;
 }
 
-body:not(:has(.public-portal)) table td {
-  font-weight: 600 !important;
-  color: #1e293b !important;
+/* Proteksi Header Tabel yang berlatar gelap / ungu (seperti thead dengan text-white) */
+body:not(:has(.public-portal)) thead.text-white th,
+body:not(:has(.public-portal)) thead[class*="text-white"] th,
+body:not(:has(.public-portal)) table th.text-white {
+  color: #ffffff !important;
 }
-html.dark body:not(:has(.public-portal)) table td {
-  color: #f8fafc !important;
+
+:where(body:not(:has(.public-portal))) :where(table td) {
+  font-weight: 600;
+  color: #1e293b;
+}
+:where(html.dark body:not(:has(.public-portal))) :where(table td) {
+  color: #f8fafc;
 }
 
 /* 5. Form Input, Select, Textarea, dan Tombol */
-body:not(:has(.public-portal)) input:not([type="checkbox"]):not([type="radio"]),
-body:not(:has(.public-portal)) select,
-body:not(:has(.public-portal)) textarea {
-  font-weight: 600 !important;
-  color: #0f172a !important;
+:where(body:not(:has(.public-portal))) :where(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+  font-family: inherit;
+  font-weight: 600;
+  color: #0f172a;
 }
-html.dark body:not(:has(.public-portal)) input:not([type="checkbox"]):not([type="radio"]),
-html.dark body:not(:has(.public-portal)) select,
-html.dark body:not(:has(.public-portal)) textarea {
-  color: #ffffff !important;
+:where(html.dark body:not(:has(.public-portal))) :where(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+  color: #ffffff;
 }
 
 body:not(:has(.public-portal)) label {

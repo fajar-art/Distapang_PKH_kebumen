@@ -11,6 +11,7 @@ interface RphFormModalProps {
   formRph: RphFormData;
   setFormRph: React.Dispatch<React.SetStateAction<RphFormData>>;
   handleRphSubmit: (e: React.FormEvent) => void;
+  isSaving?: boolean;
 }
 
 export function RphFormModal({
@@ -20,6 +21,7 @@ export function RphFormModal({
   formRph,
   setFormRph,
   handleRphSubmit,
+  isSaving = false,
 }: RphFormModalProps) {
   if (!showAddModal) return null;
 
@@ -43,7 +45,7 @@ export function RphFormModal({
         <form onSubmit={handleRphSubmit} className="space-y-4 text-xs font-semibold text-slate-700">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block mb-1 font-bold text-slate-700">Nama Usaha / Tempat <span className="text-red-500">*</span></label>
+              <label className="block mb-1 font-bold text-slate-700">Nama Usaha / Tempat</label>
               <input
                 type="text"
                 required
@@ -54,7 +56,7 @@ export function RphFormModal({
               />
             </div>
             <div>
-              <label className="block mb-1 font-bold text-slate-700">Jenis Usaha <span className="text-red-500">*</span></label>
+              <label className="block mb-1 font-bold text-slate-700">Jenis Usaha</label>
               <select
                 value={formRph.jenis}
                 onChange={(e) => setFormRph({ ...formRph, jenis: e.target.value })}
@@ -70,7 +72,7 @@ export function RphFormModal({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block mb-1 font-bold text-slate-700">Nama Pemilik / Pengelola <span className="text-red-500">*</span></label>
+              <label className="block mb-1 font-bold text-slate-700">Nama Pemilik / Pengelola</label>
               <input
                 type="text"
                 required
@@ -81,7 +83,9 @@ export function RphFormModal({
               />
             </div>
             <div>
-              <label className="block mb-1 font-bold text-slate-700">Kontak / Telepon</label>
+              <label className="block mb-1 font-bold text-slate-700">
+                Kontak / Telepon <span className="text-[11px] text-slate-400 font-normal">(opsional)</span>
+              </label>
               <input
                 type="text"
                 value={formRph.kontak}
@@ -93,7 +97,7 @@ export function RphFormModal({
           </div>
 
           <div>
-            <label className="block mb-1 font-bold text-slate-700">Lokasi / Alamat Lengkap <span className="text-red-500">*</span></label>
+            <label className="block mb-1 font-bold text-slate-700">Lokasi / Alamat Lengkap</label>
             <textarea
               required
               rows={2}
@@ -106,7 +110,9 @@ export function RphFormModal({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block mb-1 font-bold text-slate-700">Sertifikat Halal</label>
+              <label className="block mb-1 font-bold text-slate-700">
+                Sertifikat Halal <span className="text-[11px] text-slate-400 font-normal">(opsional)</span>
+              </label>
               <input
                 type="text"
                 value={formRph.sertifikat_halal}
@@ -116,7 +122,9 @@ export function RphFormModal({
               />
             </div>
             <div>
-              <label className="block mb-1 font-bold text-slate-700">Nomor Kontrol Veteriner (NKV)</label>
+              <label className="block mb-1 font-bold text-slate-700">
+                Nomor Kontrol Veteriner (NKV) <span className="text-[11px] text-slate-400 font-normal">(opsional)</span>
+              </label>
               <input
                 type="text"
                 value={formRph.sertifikat_nkv}
@@ -137,10 +145,11 @@ export function RphFormModal({
             </button>
             <button
               type="submit"
-              className="h-10 px-5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold shadow-xs cursor-pointer flex items-center gap-2"
+              disabled={isSaving}
+              className="h-10 px-5 rounded-xl bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-bold shadow-xs cursor-pointer flex items-center justify-center gap-2"
             >
-              <CheckCircle2 size={15} />
-              <span>Simpan Rumah Potong</span>
+              {isSaving ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
+              <span>{isSaving ? 'Menyimpan...' : 'Simpan Rumah Potong'}</span>
             </button>
           </div>
         </form>
@@ -185,7 +194,7 @@ export function AddYearModal({
 
         <form onSubmit={handleAddYearSubmit} className="space-y-4 text-xs font-semibold text-slate-700">
           <div>
-            <label className="block mb-1 font-bold text-slate-700">Tahun Baru yang Ditambahkan <span className="text-red-500">*</span></label>
+            <label className="block mb-1 font-bold text-slate-700">Tahun Baru yang Ditambahkan</label>
             <input
               type="number"
               required

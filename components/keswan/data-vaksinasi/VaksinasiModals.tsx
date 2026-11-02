@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Calendar } from 'lucide-react';
+import { Calendar, Loader2 } from 'lucide-react';
 import { Bulanan, Droping } from './types';
 import { useUserAreaRestriction } from '@/hooks/useUserAreaRestriction';
 
@@ -32,6 +32,7 @@ interface VaksinasiModalsProps {
   formDroping: any;
   setFormDroping: React.Dispatch<React.SetStateAction<any>>;
   submitDroping: (e: React.FormEvent) => Promise<void>;
+  isSubmitting?: boolean;
 }
 
 export default function VaksinasiModals({
@@ -60,17 +61,19 @@ export default function VaksinasiModals({
   formDroping,
   setFormDroping,
   submitDroping,
+  isSubmitting = false,
 }: VaksinasiModalsProps) {
-  const { isAdmin, isPuskeswanAllowed } = useUserAreaRestriction();
-  const allowedBulanan = isAdmin ? bulanan : bulanan.filter((b) => isPuskeswanAllowed(b.puskeswan));
+  const { isAdmin, isUnrestricted, isPuskeswanAllowed } = useUserAreaRestriction();
+  const canAccessAll = isAdmin || isUnrestricted;
+  const allowedBulanan = canAccessAll ? bulanan : bulanan.filter((b) => isPuskeswanAllowed(b.puskeswan));
 
   useEffect(() => {
-    if (modalHarianManual && !isAdmin && allowedBulanan.length > 0) {
+    if (modalHarianManual && !canAccessAll && allowedBulanan.length > 0) {
       if (!isPuskeswanAllowed(formHarianManual.puskeswan)) {
         setFormHarianManual((prev) => ({ ...prev, puskeswan: allowedBulanan[0].puskeswan }));
       }
     }
-  }, [modalHarianManual, isAdmin, allowedBulanan, formHarianManual.puskeswan, isPuskeswanAllowed, setFormHarianManual]);
+  }, [modalHarianManual, canAccessAll, allowedBulanan, formHarianManual.puskeswan, isPuskeswanAllowed, setFormHarianManual]);
 
   return (
     <>
@@ -173,7 +176,7 @@ export default function VaksinasiModals({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-xs font-bold text-slate-700">
-                    Puskeswan <span className="text-red-500">*</span>
+                    Puskeswan
                   </label>
                   {!isAdmin && (
                     <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
@@ -196,7 +199,7 @@ export default function VaksinasiModals({
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Tanggal Pelaksanaan <span className="text-red-500">*</span>
+                  Tanggal Pelaksanaan
                 </label>
                 <input
                   type="date"
@@ -209,7 +212,7 @@ export default function VaksinasiModals({
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Jumlah Dosis Vaksin <span className="text-red-500">*</span>
+                  Jumlah Dosis Vaksin
                 </label>
                 <input
                   type="number"
@@ -231,9 +234,17 @@ export default function VaksinasiModals({
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 min-h-touch h-10 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition-colors shadow-xs cursor-pointer"
+                  disabled={isSubmitting}
+                  className="flex-1 min-h-touch h-10 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition-colors shadow-xs cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Simpan Dosis Harian
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      <span>Menyimpan...</span>
+                    </>
+                  ) : (
+                    'Simpan Dosis Harian'
+                  )}
                 </button>
               </div>
             </form>
@@ -250,7 +261,9 @@ export default function VaksinasiModals({
             </h3>
             <form onSubmit={submitBulanan} className="space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">No. Urut</label>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  No. Urut <span className="text-[11px] text-slate-400 font-normal">(opsional)</span>
+                </label>
                 <input
                   type="number"
                   value={formBulanan.no_urut}
@@ -269,7 +282,9 @@ export default function VaksinasiModals({
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Target Dosis</label>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Target Dosis <span className="text-[11px] text-slate-400 font-normal">(opsional)</span>
+                </label>
                 <input
                   type="number"
                   value={formBulanan.target}
@@ -278,7 +293,9 @@ export default function VaksinasiModals({
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Pengambilan Vaksin</label>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Pengambilan Vaksin <span className="text-[11px] text-slate-400 font-normal">(opsional)</span>
+                </label>
                 <input
                   type="number"
                   value={formBulanan.pengambilan}
@@ -296,9 +313,17 @@ export default function VaksinasiModals({
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 min-h-touch h-10 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 cursor-pointer shadow-xs"
+                  disabled={isSubmitting}
+                  className="flex-1 min-h-touch h-10 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 cursor-pointer shadow-xs flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Simpan
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      <span>Menyimpan...</span>
+                    </>
+                  ) : (
+                    'Simpan'
+                  )}
                 </button>
               </div>
             </form>
@@ -343,7 +368,9 @@ export default function VaksinasiModals({
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Keterangan</label>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Keterangan <span className="text-[11px] text-slate-400 font-normal">(opsional)</span>
+                </label>
                 <input
                   type="text"
                   value={formDroping.keterangan}
@@ -362,9 +389,17 @@ export default function VaksinasiModals({
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 min-h-touch h-10 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 cursor-pointer shadow-xs"
+                  disabled={isSubmitting}
+                  className="flex-1 min-h-touch h-10 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 cursor-pointer shadow-xs flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Simpan
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      <span>Menyimpan...</span>
+                    </>
+                  ) : (
+                    'Simpan'
+                  )}
                 </button>
               </div>
             </form>

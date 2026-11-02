@@ -23,6 +23,7 @@ import {
   rezaFormatKegiatanList,
 } from '@/components/bitpro/kegiatan-ktt/types';
 import { KegiatanForm } from '@/components/bitpro/kegiatan-ktt/KegiatanForm';
+import { showToast, showConfirm } from '@/components/common/CustomToast';
 import { KegiatanCalendar } from '@/components/bitpro/kegiatan-ktt/KegiatanCalendar';
 import { KegiatanTable } from '@/components/bitpro/kegiatan-ktt/KegiatanTable';
 import { KegiatanPetaTab } from '@/components/bitpro/kegiatan-ktt/KegiatanPetaTab';
@@ -86,6 +87,7 @@ export default function KegiatanKTTPage() {
     lng: null as number | null,
     photo: null as string | null,
   });
+  const [isSaving, setIsSaving] = useState(false);
 
   // Fetch Data
   const fetchData = async () => {
@@ -392,6 +394,7 @@ export default function KegiatanKTTPage() {
   // Submit Simpan / Edit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSaving) return;
     const isEdit = !!editingId;
     if (isEdit && !canEdit) {
       alert('Hanya Administrator yang berhak mengedit catatan kegiatan.');
@@ -404,6 +407,7 @@ export default function KegiatanKTTPage() {
     if (!formData.nama_ktt) return alert('Silakan pilih nama KTT!');
     if (!formData.nama_kegiatan) return alert('Silakan isi nama/jenis kegiatan!');
 
+    setIsSaving(true);
     try {
       const res = await fetch('/api/kegiatan-ktt', {
         method: 'POST',
@@ -427,6 +431,8 @@ export default function KegiatanKTTPage() {
       }
     } catch {
       alert('Terjadi kesalahan koneksi jaringan.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -456,25 +462,34 @@ export default function KegiatanKTTPage() {
   // Handle Delete
   const handleDelete = async (id: string) => {
     if (!canEdit) {
-      alert('Hanya Administrator yang berhak menghapus kegiatan.');
+      showToast.error('Hanya Administrator yang berhak menghapus kegiatan.');
       return;
     }
-    if (!confirm('Yakin ingin menghapus catatan log kegiatan ini?')) return;
+    const ok = await showConfirm({
+      title: 'Hapus Catatan Kegiatan',
+      message: 'Yakin ingin menghapus catatan log kegiatan ini?',
+      confirmText: 'Ya, Hapus',
+      cancelText: 'Batal',
+      type: 'danger',
+    });
+    if (!ok) return;
+
     try {
       const res = await fetch(`/api/kegiatan-ktt?id=${id}`, { method: 'DELETE' });
       if (res.ok) {
+        showToast.success('Catatan kegiatan berhasil dihapus.');
         fetchData();
       } else {
-        alert('Gagal menghapus kegiatan.');
+        showToast.error('Gagal menghapus kegiatan.');
       }
     } catch {
-      alert('Terjadi kesalahan koneksi.');
+      showToast.error('Terjadi kesalahan koneksi.');
     }
   };
 
   // Export to Excel
   const handleExportExcel = () => {
-    if (listKegiatan.length === 0) return alert('Belum ada data kegiatan untuk diekspor!');
+    if (listKegiatan.length === 0) return showToast.warning('Belum ada data kegiatan untuk diekspor!');
     const rows = filteredKegiatan.map((item, idx) => ({
       No: idx + 1,
       Tanggal: item.tanggal ? item.tanggal.substring(0, 10) : '-',
@@ -573,9 +588,9 @@ export default function KegiatanKTTPage() {
   if (!isReady) return null;
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-emerald-600 selection:text-white pb-20">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans selection:bg-emerald-600 selection:text-white pb-20">
       {/* ── TOP HEADER (Tema Hijau Bitpro) ── */}
-      <header className="border-b border-emerald-100 bg-white/95 backdrop-blur-md sticky top-0 z-30 shadow-xs">
+      <header className="border-b border-emerald-100 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md sticky top-0 z-30 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 min-h-[80px] sm:min-h-[88px] flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <Link
@@ -588,13 +603,13 @@ export default function KegiatanKTTPage() {
 
             <div className="min-w-0">
               <div className="flex items-center gap-2 mb-0.5">
-                <Link href="/bitpro" className="text-xs font-semibold text-slate-500 hover:text-emerald-700 transition-colors truncate">
+                <Link href="/bitpro" className="text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors truncate">
                   Bitpro
                 </Link>
-                <span className="text-slate-300">/</span>
-                <span className="text-xs font-bold text-emerald-700 whitespace-nowrap">Kegiatan KTT</span>
+                <span className="text-slate-300 dark:text-slate-600">/</span>
+                <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">Kegiatan KTT</span>
               </div>
-              <h1 className="text-sm sm:text-xl font-bold text-slate-900 tracking-tight leading-tight line-clamp-2 sm:line-clamp-none">
+              <h1 className="text-sm sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight line-clamp-2 sm:line-clamp-none">
                 Log Aktivitas &amp; Pembinaan KTT
               </h1>
             </div>
@@ -605,7 +620,7 @@ export default function KegiatanKTTPage() {
               onClick={handleExportExcel}
               title="Export Excel"
               aria-label="Export Excel"
-              className="min-h-touch min-w-touch h-11 w-11 sm:w-auto sm:px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-bold flex items-center justify-center sm:gap-2 transition-all shadow-xs cursor-pointer"
+              className="min-h-touch min-w-touch h-11 w-11 sm:w-auto sm:px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-bold flex items-center justify-center sm:gap-2 transition-all shadow-xs cursor-pointer"
             >
               <Download size={16} strokeWidth={2.5} />
               <span className="hidden sm:inline">Export Excel</span>
@@ -635,62 +650,63 @@ export default function KegiatanKTTPage() {
           setPreviewPhotoModal={setPreviewPhotoModal}
           handleSubmit={handleSubmit}
           resetForm={resetForm}
+          isSaving={isSaving}
         />
 
         {/* KPI Metrics */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          <div className="p-3.5 sm:p-5 rounded-2xl border border-slate-200 bg-white shadow-sm flex items-center gap-3.5 sm:gap-4">
+          <div className="p-3.5 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm flex items-center gap-3.5 sm:gap-4">
             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
               <FileText className="w-5 h-5 sm:w-[22px] sm:h-[22px]" strokeWidth={2.5} />
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-sans font-semibold uppercase tracking-wider text-slate-500 mb-0.5 truncate">
+              <p className="text-xs font-sans font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-0.5 truncate">
                 Total Kegiatan
               </p>
-              <p className="font-sans text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900">
+              <p className="font-sans text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 dark:text-white">
                 {listKegiatan.length} <span className="text-xs font-semibold text-slate-400">Aktivitas</span>
               </p>
             </div>
           </div>
 
-          <div className="p-3.5 sm:p-5 rounded-2xl border border-slate-200 bg-white shadow-sm flex items-center gap-3.5 sm:gap-4">
+          <div className="p-3.5 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm flex items-center gap-3.5 sm:gap-4">
             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
               <Users className="w-5 h-5 sm:w-[22px] sm:h-[22px]" strokeWidth={2.5} />
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-sans font-semibold uppercase tracking-wider text-slate-500 mb-0.5 truncate">
+              <p className="text-xs font-sans font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-0.5 truncate">
                 KTT Terdampingi
               </p>
-              <p className="font-sans text-xl sm:text-2xl lg:text-3xl font-extrabold text-emerald-700">
+              <p className="font-sans text-xl sm:text-2xl lg:text-3xl font-extrabold text-emerald-700 dark:text-emerald-400">
                 {uniqueKttCount} <span className="text-xs font-semibold text-slate-400">Kelompok</span>
               </p>
             </div>
           </div>
 
-          <div className="p-3.5 sm:p-5 rounded-2xl border border-slate-200 bg-white shadow-sm flex items-center gap-3.5 sm:gap-4">
+          <div className="p-3.5 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm flex items-center gap-3.5 sm:gap-4">
             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
               <MapPin className="w-5 h-5 sm:w-[22px] sm:h-[22px]" strokeWidth={2.5} />
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-sans font-semibold uppercase tracking-wider text-slate-500 mb-0.5 truncate">
+              <p className="text-xs font-sans font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-0.5 truncate">
                 Terverifikasi GPS
               </p>
-              <p className="font-sans text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900">
+              <p className="font-sans text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 dark:text-white">
                 {listKegiatan.filter((k) => k.lat).length} <span className="text-xs font-semibold text-slate-400">Lokasi</span>
               </p>
             </div>
           </div>
 
-          <div className="p-3.5 sm:p-5 rounded-2xl border border-slate-200 bg-white shadow-sm flex items-center gap-3.5 sm:gap-4">
+          <div className="p-3.5 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm flex items-center gap-3.5 sm:gap-4">
             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
               <Sparkles className="w-5 h-5 sm:w-[22px] sm:h-[22px]" strokeWidth={2.5} />
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-sans font-semibold uppercase tracking-wider text-slate-500 mb-0.5 truncate">
+              <p className="text-xs font-sans font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-0.5 truncate">
                 Status Sistem
               </p>
-              <p className="font-sans text-sm sm:text-base lg:text-lg font-bold text-emerald-800 flex items-center gap-1.5 truncate">
-                <CheckCircle2 size={16} strokeWidth={2.5} className="text-emerald-600 shrink-0" />
+              <p className="font-sans text-sm sm:text-base lg:text-lg font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5 truncate">
+                <CheckCircle2 size={16} strokeWidth={2.5} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
                 <span className="truncate">Terhubung Realtime</span>
               </p>
             </div>
@@ -698,14 +714,14 @@ export default function KegiatanKTTPage() {
         </div>
 
         {/* ── 2 VIEW TABS: LOG AKTIVITAS & KALENDER (TAB 1) VS PETA SEBARAN (TAB 2) ── */}
-        <div className="flex gap-2 border-b border-slate-200 pb-px overflow-x-auto no-scrollbar scroll-smooth -mx-4 px-4 sm:mx-0 sm:px-0">
+        <div className="flex gap-2 border-b border-slate-200 dark:border-slate-800 pb-px overflow-x-auto no-scrollbar scroll-smooth -mx-4 px-4 sm:mx-0 sm:px-0">
           <button
             type="button"
             onClick={() => setActiveTab('log')}
             className={`min-h-touch h-11 px-4 sm:px-6 rounded-t-xl text-xs sm:text-sm font-bold flex items-center gap-2 border-t border-x transition-all shrink-0 whitespace-nowrap cursor-pointer ${
               activeTab === 'log'
-                ? 'bg-white border-slate-200 text-emerald-700 border-b-white translate-y-px shadow-xs'
-                : 'border-transparent text-slate-500 hover:text-slate-900 bg-slate-100/60'
+                ? 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-emerald-700 dark:text-emerald-400 border-b-white dark:border-b-slate-900 translate-y-px shadow-xs'
+                : 'border-transparent text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white bg-slate-100/60 dark:bg-slate-800/40'
             }`}
           >
             <CalendarIcon size={16} strokeWidth={2.5} />
@@ -717,13 +733,13 @@ export default function KegiatanKTTPage() {
             onClick={() => setActiveTab('peta')}
             className={`min-h-touch h-11 px-4 sm:px-6 rounded-t-xl text-xs sm:text-sm font-bold flex items-center gap-2 border-t border-x transition-all shrink-0 whitespace-nowrap cursor-pointer ${
               activeTab === 'peta'
-                ? 'bg-white border-slate-200 text-emerald-700 border-b-white translate-y-px shadow-xs'
-                : 'border-transparent text-slate-500 hover:text-slate-900 bg-slate-100/60'
+                ? 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-emerald-700 dark:text-emerald-400 border-b-white dark:border-b-slate-900 translate-y-px shadow-xs'
+                : 'border-transparent text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white bg-slate-100/60 dark:bg-slate-800/40'
             }`}
           >
             <MapIcon size={16} strokeWidth={2.5} />
             <span>Peta Sebaran Kegiatan</span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 font-bold">
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-bold">
               {listKegiatan.filter((k) => k.lat && k.lng).length} Titik
             </span>
           </button>

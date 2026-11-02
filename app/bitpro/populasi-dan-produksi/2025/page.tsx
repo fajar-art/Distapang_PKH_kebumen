@@ -90,11 +90,11 @@ export default function Populasi2025() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-emerald-600 selection:text-white pb-20">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans selection:bg-emerald-600 selection:text-white pb-20">
       
       {/* ── TOP HEADER (Tema Hijau - Lega & Bernapas) ── */}
-      <header className="border-b border-emerald-100 bg-white/95 backdrop-blur-md sticky top-0 z-30 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 min-h-[80px] sm:min-h-[88px] flex items-center justify-between gap-3">
+      <header className="border-b border-emerald-100 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md sticky top-0 z-30 shadow-xs">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 min-h-[80px] sm:min-h-[88px] flex flex-col md:flex-row md:items-center justify-between gap-4">
           
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <Link
@@ -113,17 +113,17 @@ export default function Populasi2025() {
                 <span className="text-slate-300">/</span>
                 <span className="text-xs font-bold text-emerald-700 whitespace-nowrap">Populasi 2025</span>
               </div>
-              <h1 className="text-base sm:text-xl font-bold text-slate-900 tracking-tight leading-tight truncate">
+              <h1 className="text-base sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight truncate">
                 Data Populasi Ternak TW {selectedTw} Tahun 2025
               </h1>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 flex-wrap">
             <select
               value={selectedTw}
               onChange={(e) => setSelectedTw(e.target.value)}
-              className="min-h-touch h-11 px-3 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-900 text-xs sm:text-sm font-bold focus:outline-none focus:border-emerald-600 shadow-xs"
+              className="min-h-touch h-11 px-3 rounded-xl border border-emerald-200 dark:border-slate-700 bg-emerald-50 dark:bg-slate-800 text-emerald-900 dark:text-emerald-300 text-xs sm:text-sm font-bold focus:outline-none focus:border-emerald-600 shadow-xs"
             >
               <option value="1">Triwulan 1 (TW 1)</option>
               <option value="2">Triwulan 2 (TW 2)</option>
@@ -135,7 +135,7 @@ export default function Populasi2025() {
               onClick={handleExportExcel}
               title="Export Excel"
               aria-label="Export Excel"
-              className="min-h-touch min-w-touch h-11 w-11 sm:w-auto sm:px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-bold flex items-center justify-center sm:gap-2 transition-all shadow-xs cursor-pointer"
+              className="min-h-touch min-w-touch h-11 w-11 sm:w-auto sm:px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-bold flex items-center justify-center sm:gap-2 transition-all shadow-xs cursor-pointer"
             >
               <Download size={16} strokeWidth={2.5} />
               <span className="hidden sm:inline">Export Excel</span>
@@ -148,7 +148,7 @@ export default function Populasi2025() {
                 placeholder="Cari desa/kecamatan..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full min-h-touch h-11 pl-9 pr-3 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-900 focus:outline-none focus:border-emerald-600 focus:bg-white transition-colors"
+                className="w-full min-h-touch h-11 pl-9 pr-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-emerald-600 focus:bg-white dark:focus:bg-slate-800 transition-colors"
               />
             </div>
           </div>
@@ -159,13 +159,13 @@ export default function Populasi2025() {
       {/* ── MAIN WORKSPACE ── */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-4">
         
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
           
-          <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
-            <span className="text-xs font-bold text-slate-700 font-sans">
-              Menampilkan {filteredData.length} Desa dari Database MySQL (`populasi`)
+          <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/60">
+            <span className="text-xs font-bold text-slate-700 dark:text-slate-300 font-sans">
+              Menampilkan {filteredData.length} Desa
             </span>
-            <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100">
+            <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-3 py-1 rounded-full border border-emerald-100 dark:border-emerald-800">
               Sinkronisasi Live
             </span>
           </div>
@@ -179,43 +179,57 @@ export default function Populasi2025() {
           ) : (
             <div className="overflow-x-auto max-h-[75vh] overflow-y-auto">
               <table className="w-full text-xs text-left whitespace-nowrap border-collapse">
-                <thead className="bg-slate-100 text-slate-700 font-semibold uppercase tracking-wider sticky top-0 z-20 border-b border-slate-200 shadow-sm">
+                <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold uppercase tracking-wider sticky top-0 z-20 border-b border-slate-200 dark:border-slate-800 shadow-sm">
                   <tr>
-                    <th className="p-3 w-12 text-center sticky left-0 bg-slate-100 z-30 border-r border-slate-200">No</th>
-                    <th className="p-3 sticky left-[48px] bg-slate-100 z-30 border-r border-slate-200">Kecamatan</th>
-                    <th className="p-3 sticky left-[168px] bg-slate-100 z-30 border-r border-slate-200">Desa</th>
+                    <th className="p-3 w-12 text-center sticky left-0 bg-slate-100 dark:bg-slate-800 z-30 border-r border-slate-200 dark:border-slate-800">No</th>
+                    <th className="p-3 sticky left-[48px] bg-slate-100 dark:bg-slate-800 z-30 border-r border-slate-200 dark:border-slate-800">Kecamatan</th>
+                    <th className="p-3 sticky left-[168px] bg-slate-100 dark:bg-slate-800 z-30 border-r border-slate-200 dark:border-slate-800">Desa</th>
                     {HEADERS.map((h, i) => (
-                      <th key={i} className="p-3 text-right font-sans border-r border-slate-200">{h}</th>
+                      <th key={i} className="p-3 text-right font-sans border-r border-slate-200 dark:border-slate-800">{h}</th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-slate-800">
-                  {filteredData.map((row, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="p-3 text-center font-sans text-slate-400 sticky left-0 bg-white z-10 border-r border-slate-100">
-                        {row.no || idx + 1}
-                      </td>
-                      <td className="p-3 font-semibold text-slate-900 sticky left-[48px] bg-white z-10 border-r border-slate-100">
-                        {row.kec}
-                      </td>
-                      <td className="p-3 text-slate-700 sticky left-[168px] bg-white z-10 border-r border-slate-100">
-                        {row.desa}
-                      </td>
-                      {row.v.map((val: any, i: number) => (
-                        <td key={i} className="p-3 text-right font-sans tabular-nums border-r border-slate-100">
-                          {Number(val).toLocaleString('id-ID')}
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-slate-800 dark:text-slate-200">
+                  {filteredData.map((row, idx) => {
+                    const isEven = idx % 2 === 0;
+                    return (
+                      <tr
+                        key={idx}
+                        className={`transition-colors ${
+                          isEven ? 'bg-white dark:bg-slate-900 hover:bg-slate-50/80 dark:hover:bg-slate-800/80' : 'bg-slate-50/60 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800/80'
+                        }`}
+                      >
+                        <td className={`p-3 text-center font-sans text-slate-400 sticky left-0 z-10 border-r border-slate-200 dark:border-slate-800 ${
+                          isEven ? 'bg-white dark:bg-slate-900' : 'bg-slate-50 dark:bg-slate-800'
+                        }`}>
+                          {row.no || idx + 1}
                         </td>
-                      ))}
-                    </tr>
-                  ))}
+                        <td className={`p-3 font-semibold text-slate-900 dark:text-slate-100 sticky left-[48px] z-10 border-r border-slate-200 dark:border-slate-800 ${
+                          isEven ? 'bg-white dark:bg-slate-900' : 'bg-slate-50 dark:bg-slate-800'
+                        }`}>
+                          {row.kec}
+                        </td>
+                        <td className={`p-3 text-slate-700 dark:text-slate-300 sticky left-[168px] z-10 border-r border-slate-200 dark:border-slate-800 ${
+                          isEven ? 'bg-white dark:bg-slate-900' : 'bg-slate-50 dark:bg-slate-800'
+                        }`}>
+                          {row.desa}
+                        </td>
+                        {row.v.map((val: any, i: number) => (
+                          <td key={i} className="p-3 text-right font-sans tabular-nums border-r border-slate-200 dark:border-slate-800">
+                            {Number(val).toLocaleString('id-ID')}
+                          </td>
+                        ))}
+                      </tr>
+                    );
+                  })}
                 </tbody>
                 <tfoot>
-                  <tr className="bg-slate-100 text-slate-900 font-bold sticky bottom-0 z-20 border-t-2 border-slate-300">
-                    <td colSpan={3} className="p-3 text-center sticky left-0 bg-slate-100 z-30 border-r border-slate-300 font-sans uppercase">
+                  <tr className="bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-bold sticky bottom-0 z-20 border-t-2 border-slate-200 dark:border-slate-800">
+                    <td colSpan={3} className="p-3 text-center sticky left-0 bg-slate-100 dark:bg-slate-800 z-30 border-r border-slate-200 dark:border-slate-800 font-sans uppercase">
                       TOTAL KABUPATEN
                     </td>
                     {dynamicTotalRow.map((val: number, i: number) => (
-                      <td key={i} className="p-3 text-right font-sans text-emerald-600 font-bold border-r border-slate-300">
+                      <td key={i} className="p-3 text-right font-sans text-emerald-600 dark:text-emerald-400 font-bold border-r border-slate-200 dark:border-slate-800">
                         {Number(val).toLocaleString('id-ID')}
                       </td>
                     ))}

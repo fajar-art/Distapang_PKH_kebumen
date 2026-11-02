@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Clock, Edit2, Loader2, Send, AlertTriangle } from 'lucide-react';
 import { KegiatanKTT } from './types';
+import { KECAMATAN_LIST } from '@/components/common/UniversalAuditModal';
 
 interface AuditHistoryModalProps {
   isOpen: boolean;
@@ -148,6 +149,23 @@ export function AuditHistoryModal({ isOpen, onClose, kegiatan, moduleKey, submen
           <AlertTriangle size={16} className="shrink-0 mt-0.5" />
           <span>Anda sedang mengajukan penghapusan data ini secara permanen. Silakan jelaskan alasannya di bawah.</span>
         </div>
+      );
+    }
+
+    if (selectedField === 'kecamatan') {
+      return (
+        <select
+          value={newValue}
+          onChange={e => setNewValue(e.target.value)}
+          className="w-full text-sm font-medium p-3 rounded-xl border border-emerald-300 bg-white focus:ring-2 focus:ring-emerald-500 outline-none cursor-pointer"
+        >
+          <option value="">-- Pilih Kecamatan yang benar --</option>
+          {KECAMATAN_LIST.map(kec => (
+            <option key={kec} value={kec}>
+              {kec}
+            </option>
+          ))}
+        </select>
       );
     }
 
@@ -316,7 +334,10 @@ export function AuditHistoryModal({ isOpen, onClose, kegiatan, moduleKey, submen
                     </label>
                     <select
                       value={selectedField}
-                      onChange={e => setSelectedField(e.target.value)}
+                      onChange={e => {
+                        setSelectedField(e.target.value);
+                        setNewValue('');
+                      }}
                       className="w-full text-sm font-medium p-3 rounded-xl border border-emerald-300 bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none shadow-sm"
                     >
                       {dropdownOptions.map(k => (

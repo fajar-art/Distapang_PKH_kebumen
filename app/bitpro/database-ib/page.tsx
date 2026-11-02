@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import * as XLSX from 'xlsx';
 import { usePageAuth } from '@/hooks/usePageAuth';
+import { getAuthSession } from '@/lib/auth';
 import {
   ArrowLeft,
   Download,
@@ -24,7 +25,8 @@ import IbModals from '@/components/bitpro/database-ib/IbModals';
 import { UniversalAuditModal } from '@/components/common/UniversalAuditModal';
 
 export default function DatabaseIBPage() {
-  const { isReady, canCreate, canEdit } = usePageAuth('bitpro', 'database-ib');
+  const { isReady, canCreate, canEdit, isAdmin: isAuthAdmin, userName, userRole } = usePageAuth('bitpro', 'database-ib');
+  const isAdmin = useMemo(() => isAuthAdmin || canEdit || userRole === 'Administrator', [isAuthAdmin, canEdit, userRole]);
   const [ibList, setIbList] = useState<IBRecord[]>([]);
   const [allIbHistory, setAllIbHistory] = useState<IBRecord[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -52,6 +54,7 @@ export default function DatabaseIBPage() {
 
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [auditTarget, setAuditTarget] = useState<any | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // 1. Tarik Data dari MySQL (API)
   const loadData = async () => {
@@ -62,10 +65,25 @@ export default function DatabaseIBPage() {
         const uniqueCattleLatestIB: IBRecord[] = [];
         const fullHistory: IBRecord[] = [];
 
+        const localUser = getAuthSession();
+        const uName = (userName || localUser?.nama || '').toLowerCase().trim();
+        const uId = localUser?.id;
+
         json.cattle.forEach((cattle: any) => {
-          if (cattle.inseminations && cattle.inseminations.length > 0) {
+          // Filter pelayanan IB: jika bukan Admin, hanya tampilkan IB milik petugas yang sedang login
+          const relevantInseminations = (cattle.inseminations || []).filter((ib: any) => {
+            if (isAdmin) return true;
+            const insemName = (ib.inseminatorName || '').toLowerCase().trim();
+            if (uId && ib.id_user && Number(ib.id_user) === Number(uId)) return true;
+            if (uName && insemName && (insemName === uName || insemName.includes(uName) || uName.includes(insemName))) {
+              return true;
+            }
+            return false;
+          });
+
+          if (relevantInseminations.length > 0) {
             // Urutkan ascending berdasarkan tanggal agar siklus IB ke-1, ke-2, dst. akurat
-            const sorted = [...cattle.inseminations].sort(
+            const sorted = [...relevantInseminations].sort(
               (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
             );
 
@@ -107,10 +125,12 @@ export default function DatabaseIBPage() {
   };
 
   useEffect(() => {
-    loadData();
+    if (isReady) {
+      loadData();
+    }
     window.addEventListener('cattleDataUpdated', loadData);
     return () => window.removeEventListener('cattleDataUpdated', loadData);
-  }, []);
+  }, [isReady, isAdmin, userName]);
 
   // 2. Fungsi Tembak Eksekusi ke MySQL
   const executeApi = async (action: string, payload: any, historyObj?: any) => {
@@ -129,96 +149,115 @@ export default function DatabaseIBPage() {
 
   // Simpan Hasil PKB
   const handleSavePkb = async () => {
+    if (isSubmitting) return;
     if (!selectedIbForPkb) return;
     if (!canCreate && !canEdit) {
       alert('Anda tidak memiliki izin untuk mencatat hasil PKB.');
       return;
     }
 
-    const payload = {
-      ib_id: selectedIbForPkb.id,
-      cattle_id: selectedIbForPkb.cattleId,
-      pkbDateActual: pkbFormData.date,
-      pkbResult: pkbFormData.result,
-      pkbOfficer: pkbFormData.officer,
-      pkbNotes: pkbFormData.notes,
-      pregnancyDate: pkbFormData.result === 'Bunting' ? selectedIbForPkb.date : null,
-      newCattleStatus: pkbFormData.result === 'Bunting' ? 'Bunting' : 'Estrus',
-    };
+    setIsSubmitting(true);
+    try {
+      const effectiveOfficer = pkbFormData.officer || userName || 'Petugas';
+      const payload = {
+        ib_id: selectedIbForPkb.id,
+        cattle_id: selectedIbForPkb.cattleId,
+        pkbDateActual: pkbFormData.date,
+        pkbResult: pkbFormData.result,
+        pkbOfficer: effectiveOfficer,
+        pkbNotes: pkbFormData.notes,
+        pregnancyDate: pkbFormData.result === 'Bunting' ? selectedIbForPkb.date : null,
+        newCattleStatus: pkbFormData.result === 'Bunting' ? 'Bunting' : 'Estrus',
+      };
 
-    const historyObj = {
-      type: 'pkb_recorded',
-      cattle: selectedIbForPkb.cattleName,
-      cattleId: selectedIbForPkb.cattleId,
-      description: `PKB Dicatat: Hasil ${pkbFormData.result} (Oleh: ${pkbFormData.officer})`,
-      icon: pkbFormData.result === 'Bunting' ? '🤰' : '❌',
-    };
+      const historyObj = {
+        type: 'pkb_recorded',
+        cattle: selectedIbForPkb.cattleName,
+        cattleId: selectedIbForPkb.cattleId,
+        description: `PKB Dicatat: Hasil ${pkbFormData.result} (Oleh: ${pkbFormData.officer})`,
+        icon: pkbFormData.result === 'Bunting' ? '🤰' : '❌',
+      };
 
-    await executeApi('record_pkb', payload, historyObj);
+      await executeApi('record_pkb', payload, historyObj);
 
-    setShowPkbModal(false);
-    setPkbFormData({ date: '', result: 'Bunting', officer: '', notes: '' });
-    setSelectedIbForPkb(null);
+      setShowPkbModal(false);
+      setPkbFormData({ date: '', result: 'Bunting', officer: '', notes: '' });
+      setSelectedIbForPkb(null);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Tandai Tidak PKB
   const handleSkipPkb = async () => {
+    if (isSubmitting) return;
     if (!selectedIbForSkip) return;
     if (!canCreate && !canEdit) {
       alert('Anda tidak memiliki izin untuk mengubah status PKB.');
       return;
     }
 
-    const payload = {
-      ib_id: selectedIbForSkip.id,
-      pkbSkipDate: skipFormData.date,
-      pkbSkipReason: skipFormData.reason,
-    };
+    setIsSubmitting(true);
+    try {
+      const payload = {
+        ib_id: selectedIbForSkip.id,
+        pkbSkipDate: skipFormData.date,
+        pkbSkipReason: skipFormData.reason,
+      };
 
-    const historyObj = {
-      type: 'pkb_skipped',
-      cattle: selectedIbForSkip.cattleName,
-      cattleId: selectedIbForSkip.cattleId,
-      description: `PKB Tidak Dilakukan${skipFormData.reason ? ` (Alasan: ${skipFormData.reason})` : ''}`,
-      icon: '🚫',
-    };
+      const historyObj = {
+        type: 'pkb_skipped',
+        cattle: selectedIbForSkip.cattleName,
+        cattleId: selectedIbForSkip.cattleId,
+        description: `PKB Tidak Dilakukan${skipFormData.reason ? ` (Alasan: ${skipFormData.reason})` : ''}`,
+        icon: '🚫',
+      };
 
-    await executeApi('skip_pkb', payload, historyObj);
+      await executeApi('skip_pkb', payload, historyObj);
 
-    setShowSkipPkbModal(false);
-    setSkipFormData({ date: '', reason: '' });
-    setSelectedIbForSkip(null);
+      setShowSkipPkbModal(false);
+      setSkipFormData({ date: '', reason: '' });
+      setSelectedIbForSkip(null);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Simpan Kelahiran
   const handleSaveBirth = async () => {
+    if (isSubmitting) return;
     if (!selectedIbForBirth) return;
     if (!canCreate && !canEdit) {
       alert('Anda tidak memiliki izin untuk mencatat kelahiran pedet.');
       return;
     }
 
-    const payload = {
-      ib_id: selectedIbForBirth.id,
-      cattle_id: selectedIbForBirth.cattleId,
-      birthDate: birthFormData.date,
-      calfGender: birthFormData.gender,
-      birthNotes: birthFormData.notes,
-    };
+    setIsSubmitting(true);
+    try {
+      const payload = {
+        ib_id: selectedIbForBirth.id,
+        cattle_id: selectedIbForBirth.cattleId,
+        birthDate: birthFormData.date,
+        calfGender: birthFormData.gender,
+        birthNotes: birthFormData.notes,
+      };
 
-    const historyObj = {
-      type: 'birth_recorded',
-      cattle: selectedIbForBirth.cattleName,
-      cattleId: selectedIbForBirth.cattleId,
-      description: `Kelahiran Pedet ${birthFormData.gender} sukses!`,
-      icon: '🍼',
-    };
+      const historyObj = {
+        type: 'birth_recorded',
+        cattle: selectedIbForBirth.cattleName,
+        cattleId: selectedIbForBirth.cattleId,
+        description: `Kelahiran Pedet ${birthFormData.gender} sukses!`,
+        icon: '🍼',
+      };
 
-    await executeApi('record_birth', payload, historyObj);
+      await executeApi('record_birth', payload, historyObj);
 
-    setShowBirthModal(false);
-    setBirthFormData({ date: '', gender: 'Jantan', notes: '' });
-    setSelectedIbForBirth(null);
+      setShowBirthModal(false);
+      setBirthFormData({ date: '', gender: 'Jantan', notes: '' });
+      setSelectedIbForBirth(null);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const calvingIntervals = useMemo(() => calculateCalvingIntervals(allIbHistory), [allIbHistory]);
@@ -331,9 +370,9 @@ export default function DatabaseIBPage() {
   if (!isReady) return null;
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-emerald-600 selection:text-white pb-20">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans selection:bg-emerald-600 selection:text-white pb-20">
       {/* ── TOP APP BAR (Tema Hijau Bitpro) ── */}
-      <header className="border-b border-emerald-100 bg-white/95 backdrop-blur-md sticky top-0 z-30 shadow-xs">
+      <header className="border-b border-emerald-100 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md sticky top-0 z-30 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-5 min-h-[64px] sm:min-h-[88px] flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <Link
@@ -348,14 +387,14 @@ export default function DatabaseIBPage() {
               <div className="flex items-center gap-2 mb-0.5">
                 <Link
                   href="/bitpro"
-                  className="text-xs font-semibold text-slate-500 hover:text-emerald-700 transition-colors truncate"
+                  className="text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors truncate"
                 >
                   Bitpro
                 </Link>
-                <span className="text-slate-300">/</span>
-                <span className="text-xs font-bold text-emerald-700 whitespace-nowrap">Database IB</span>
+                <span className="text-slate-300 dark:text-slate-600">/</span>
+                <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">Database IB</span>
               </div>
-              <h1 className="text-base sm:text-xl font-bold text-slate-900 tracking-tight leading-tight truncate">
+              <h1 className="text-base sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight truncate">
                 Pencatatan Inseminasi Buatan &amp; Reproduksi
               </h1>
             </div>
@@ -366,7 +405,7 @@ export default function DatabaseIBPage() {
               onClick={handleExportExcel}
               title="Export Excel"
               aria-label="Export Excel"
-              className="min-h-touch min-w-touch h-11 w-11 sm:w-auto sm:px-5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs sm:text-sm font-bold flex items-center justify-center sm:gap-2 transition-colors shadow-xs cursor-pointer"
+              className="min-h-touch min-w-touch h-11 w-11 sm:w-auto sm:px-5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-bold flex items-center justify-center sm:gap-2 transition-colors shadow-xs cursor-pointer"
             >
               <Download size={16} />
               <span className="hidden sm:inline">Export Excel</span>
@@ -443,6 +482,7 @@ export default function DatabaseIBPage() {
         setBirthFormData={setBirthFormData}
         onCloseBirth={() => setShowBirthModal(false)}
         onSaveBirth={handleSaveBirth}
+        isSubmitting={isSubmitting}
       />
 
       {showAuditModal && auditTarget && (

@@ -38,6 +38,8 @@ import {
 } from '@/components/keswan/stok-gudang/GudangModals';
 import BeritaAcaraPrintModal from '@/components/keswan/stok-gudang/BeritaAcaraPrintModal';
 import UploadBuktiBaModal from '@/components/keswan/stok-gudang/UploadBuktiBaModal';
+import { UniversalAuditModal } from '@/components/common/UniversalAuditModal';
+import { showConfirm } from '@/components/common/CustomToast';
 
 export default function StokGudangKeswanPage() {
   const { isReady, canCreate, canEdit } = usePageAuth('keswan', 'stok-gudang');
@@ -57,6 +59,23 @@ export default function StokGudangKeswanPage() {
   const [penggunaan, setPenggunaan] = useState<PenggunaanObatItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+
+  // State Universal Audit Modal / Pusat Koreksi
+  const [showAuditModal, setShowAuditModal] = useState(false);
+  const [auditTarget, setAuditTarget] = useState<{
+    recordId: any;
+    tableName: string;
+    fields: { key: string; label: string; type?: string }[];
+  } | null>(null);
+
+  const handleOpenAudit = (
+    recordId: any,
+    tableName: string,
+    fields: { key: string; label: string; type?: string }[]
+  ) => {
+    setAuditTarget({ recordId, tableName, fields });
+    setShowAuditModal(true);
+  };
 
   // Selected Puskeswan untuk Apotek Tab
   const initialPuskId = useMemo(() => {
@@ -125,9 +144,24 @@ export default function StokGudangKeswanPage() {
     loadGudangData();
   }, []);
 
+  // Redirect non-admin (petugas) ke tab distribusi jika mencoba mengakses tab dinas
+  useEffect(() => {
+    if (isReady && !isAdmin && (activeTab === 'dashboard' || activeTab === 'pemasukan')) {
+      setActiveTab('distribusi');
+    }
+  }, [isReady, isAdmin, activeTab]);
+
   // Handler Hapus Dropping
   const handleDeleteDropping = async (id: number) => {
-    if (!confirm('Apakah Anda yakin ingin menghapus data dropping masuk ini?')) return;
+    const ok = await showConfirm({
+      title: 'Hapus Dropping Masuk',
+      message: 'Apakah Anda yakin ingin menghapus data dropping masuk ini?',
+      confirmText: 'Ya, Hapus',
+      cancelText: 'Batal',
+      type: 'danger',
+    });
+    if (!ok) return;
+
     try {
       const res = await fetch(`/api/stok-gudang?type=dropping&id=${id}`, { method: 'DELETE' });
       const resJson = await res.json();
@@ -144,7 +178,15 @@ export default function StokGudangKeswanPage() {
 
   // Handler Hapus Distribusi
   const handleDeleteDistribusi = async (id: number) => {
-    if (!confirm('Apakah Anda yakin ingin membatalkan distribusi ini? Stok puskeswan terkait akan disesuaikan.')) return;
+    const ok = await showConfirm({
+      title: 'Batalkan Distribusi',
+      message: 'Apakah Anda yakin ingin membatalkan distribusi ini? Stok puskeswan terkait akan disesuaikan.',
+      confirmText: 'Ya, Batalkan',
+      cancelText: 'Kembali',
+      type: 'warning',
+    });
+    if (!ok) return;
+
     try {
       const res = await fetch(`/api/stok-gudang?type=distribusi&id=${id}`, { method: 'DELETE' });
       const resJson = await res.json();
@@ -161,7 +203,15 @@ export default function StokGudangKeswanPage() {
 
   // Handler Hapus Penggunaan
   const handleDeletePenggunaan = async (id: number) => {
-    if (!confirm('Hapus catatan penggunaan obat ini? Stok puskeswan akan dikembalikan.')) return;
+    const ok = await showConfirm({
+      title: 'Hapus Penggunaan Obat',
+      message: 'Hapus catatan penggunaan obat ini? Stok puskeswan akan dikembalikan.',
+      confirmText: 'Ya, Hapus',
+      cancelText: 'Batal',
+      type: 'danger',
+    });
+    if (!ok) return;
+
     try {
       const res = await fetch(`/api/stok-gudang?type=penggunaan&id=${id}`, { method: 'DELETE' });
       const resJson = await res.json();
@@ -188,7 +238,7 @@ export default function StokGudangKeswanPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 p-4 sm:p-6 lg:p-8 space-y-6">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 pb-16">
       {/* ── TOAST NOTIFIKASI ── */}
       {toast && (
         <div className="fixed bottom-6 right-6 z-50 animate-bounce">
@@ -205,97 +255,95 @@ export default function StokGudangKeswanPage() {
         </div>
       )}
 
-      {/* ── HEADER HALAMAN & BREADCRUMB ── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2.5">
-            <Boxes className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-            Stok Gudang Obat &amp; Alat Keswan
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-            Pengelolaan inventaris farmasi dinas, alokasi droping 8 puskeswan, Berita Acara, dan rekam apotek
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={loadGudangData}
-            disabled={isLoading}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold rounded-xl text-xs transition-all cursor-pointer"
-            title="Refresh Data"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-blue-600' : ''}`} />
-            Refresh
-          </button>
-
-          {canCreate && (
-            <button
-              onClick={() => {
-                setEditingBarang(null);
-                setIsModalBarangOpen(true);
-              }}
-              className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-md transition-all cursor-pointer"
+      {/* ── TOP HEADER (Tema Biru Keswan) ── */}
+      <header className="border-b border-blue-100 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md sticky top-0 z-30 shadow-xs">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-5 min-h-[64px] sm:min-h-[88px] flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <Link
+              href="/keswan"
+              className="min-h-touch min-w-touch w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center transition-all shadow-xs shrink-0"
+              aria-label="Kembali ke Keswan"
             >
-              <Plus className="w-3.5 h-3.5" />
-              Barang
+              <ArrowLeft size={18} strokeWidth={2.5} />
+            </Link>
+
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 mb-0.5">
+                <Link href="/keswan" className="text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-blue-700 dark:hover:text-blue-400 transition-colors truncate">
+                  Keswan
+                </Link>
+                <span className="text-slate-300 dark:text-slate-600">/</span>
+                <span className="text-xs font-bold text-blue-700 dark:text-blue-400 whitespace-nowrap">Stok Gudang</span>
+              </div>
+              <h1 className="text-base sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight truncate">
+                Stok Gudang Obat &amp; Alat Keswan
+              </h1>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={loadGudangData}
+              disabled={isLoading}
+              className="min-h-touch min-w-touch h-10 sm:h-11 px-3.5 sm:px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors shadow-xs cursor-pointer"
+              title="Refresh Data"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-blue-600' : ''}`} />
+              <span className="hidden sm:inline">Refresh</span>
             </button>
-          )}
+
+            {isAdmin && canCreate && (
+              <button
+                onClick={() => {
+                  setEditingBarang(null);
+                  setIsModalBarangOpen(true);
+                }}
+                className="min-h-touch min-w-touch h-10 sm:h-11 px-3 sm:px-5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs sm:text-sm shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                title="Tambah Barang Baru"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">Barang</span>
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      </header>
 
-      {/* ── 4 TAB UTAMA ── */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-px overflow-x-auto">
-        <button
-          onClick={() => setActiveTab('dashboard')}
-          className={`flex items-center gap-2 px-5 py-3 text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap ${
-            activeTab === 'dashboard'
-              ? 'border-blue-600 text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-950/20 rounded-t-xl'
-              : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-          }`}
-        >
-          <Layers className="w-4 h-4" />
-          Dashboard &amp; Stok Dinas
-        </button>
-
-        <button
-          onClick={() => setActiveTab('pemasukan')}
-          className={`flex items-center gap-2 px-5 py-3 text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap ${
-            activeTab === 'pemasukan'
-              ? 'border-blue-600 text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-950/20 rounded-t-xl'
-              : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-          }`}
-        >
-          <ArrowDownLeft className="w-4 h-4" />
-          Pemasukan Dropping Dinas ({droppingDinas.length})
-        </button>
-
-        <button
-          onClick={() => setActiveTab('distribusi')}
-          className={`flex items-center gap-2 px-5 py-3 text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap ${
-            activeTab === 'distribusi'
-              ? 'border-blue-600 text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-950/20 rounded-t-xl'
-              : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-          }`}
-        >
-          <ArrowUpRight className="w-4 h-4" />
-          Distribusi &amp; Berita Acara BA ({distribusi.length})
-        </button>
-
-        <button
-          onClick={() => setActiveTab('puskeswan')}
-          className={`flex items-center gap-2 px-5 py-3 text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap ${
-            activeTab === 'puskeswan'
-              ? 'border-blue-600 text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-950/20 rounded-t-xl'
-              : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-          }`}
-        >
-          <Building2 className="w-4 h-4" />
-          Apotek Puskeswan &amp; Rekam Penggunaan ({penggunaan.length})
-        </button>
+      {/* ── MAIN WORKSPACE ── */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        {/* ── TAB UTAMA (Folder Tab Model Monev KTT) ── */}
+        <div className="flex gap-2 border-b border-slate-200 dark:border-slate-800 pb-px overflow-x-auto no-scrollbar scroll-smooth -mx-4 px-4 sm:mx-0 sm:px-0">
+        {[
+          ...(isAdmin
+            ? [
+                { key: 'dashboard', label: 'Dashboard & Stok', icon: Layers },
+                { key: 'pemasukan', label: 'Pemasukan Dropping', icon: ArrowDownLeft },
+              ]
+            : []),
+          { key: 'distribusi', label: 'Distribusi', icon: ArrowUpRight },
+          { key: 'puskeswan', label: 'Apotek Puskeswan', icon: Building2 },
+        ].map((tab) => {
+          const Icon = tab.icon;
+          const active = activeTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key as any)}
+              className={`min-h-touch h-11 px-4 sm:px-6 rounded-t-xl text-xs sm:text-sm font-bold flex items-center gap-2 border-t border-x transition-all shrink-0 whitespace-nowrap cursor-pointer ${
+                active
+                  ? 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-blue-600 dark:text-blue-400 border-b-white dark:border-b-slate-900 translate-y-px shadow-xs'
+                  : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 bg-slate-100/60 dark:bg-slate-800/60'
+              }`}
+            >
+              <Icon size={16} strokeWidth={2.5} />
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* ── KONTEN TAB ── */}
-      {activeTab === 'dashboard' && (
+      {isAdmin && activeTab === 'dashboard' && (
         <GudangDashboardTab
           stokDinas={stokDinas}
           masterBarang={masterBarang}
@@ -312,13 +360,15 @@ export default function StokGudangKeswanPage() {
         />
       )}
 
-      {activeTab === 'pemasukan' && (
+      {isAdmin && activeTab === 'pemasukan' && (
         <PemasukanDinasTab
           droppings={droppingDinas}
           masterBarang={masterBarang}
           onOpenTambahDropping={() => setIsModalDroppingOpen(true)}
           onDeleteDropping={handleDeleteDropping}
+          canCreate={canCreate}
           canEdit={canEdit}
+          onOpenAudit={handleOpenAudit}
         />
       )}
 
@@ -333,7 +383,9 @@ export default function StokGudangKeswanPage() {
           onOpenPrintBa={(item) => setPrintBaItem(item)}
           onOpenUploadBa={(item) => setUploadBaItem(item)}
           onDeleteDistribusi={handleDeleteDistribusi}
+          canCreate={canCreate}
           canEdit={canEdit}
+          onOpenAudit={handleOpenAudit}
         />
       )}
 
@@ -348,10 +400,13 @@ export default function StokGudangKeswanPage() {
             setIsModalPenggunaanOpen(true);
           }}
           onDeletePenggunaan={handleDeletePenggunaan}
+          canCreate={canCreate}
           canEdit={canEdit}
           isAdmin={isAdmin}
+          onOpenAudit={handleOpenAudit}
         />
       )}
+      </main>
 
       {/* ── MODALS ── */}
       {isModalBarangOpen && (
@@ -421,6 +476,18 @@ export default function StokGudangKeswanPage() {
             showToast('success', 'Bukti tanda terima Berita Acara berhasil diunggah.');
             loadGudangData();
           }}
+        />
+      )}
+
+      {showAuditModal && auditTarget && (
+        <UniversalAuditModal
+          isOpen={showAuditModal}
+          onClose={() => setShowAuditModal(false)}
+          recordId={auditTarget.recordId}
+          tableName={auditTarget.tableName}
+          moduleKey="keswan"
+          submenuKey="stok-gudang"
+          availableFields={auditTarget.fields as any}
         />
       )}
     </div>

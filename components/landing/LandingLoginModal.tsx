@@ -84,7 +84,7 @@ export function LandingLoginModal({
             <input
               type="text"
               required
-              placeholder="Contoh: superadmin / 19800101... / nama@dinas.go.id"
+              placeholder="Contoh: 19800101... / nama@dinas.go.id"
               value={loginId}
               onChange={(e) => setLoginId(e.target.value)}
               className="w-full h-11 px-3.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm sm:text-base font-sans outline-none focus:border-blue-500 focus:bg-white dark:focus:bg-slate-900 transition-colors"

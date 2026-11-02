@@ -30,8 +30,10 @@ import {
   UserPermissions,
   DEFAULT_FULL_PERMISSIONS,
   DEFAULT_VIEW_ONLY_PERMISSIONS,
+  getDefaultPermissionsForRole,
 } from '@/lib/permissions';
 import { getAuthSession } from '@/lib/auth';
+import { showConfirm, showToast } from '@/components/common/CustomToast';
 
 export interface AnggotaUser {
   id: number;
@@ -67,9 +69,10 @@ export const MODULES_METADATA = [
     desc: 'Laporan vaksinasi, lalu lintas, penyakit ternak, dan kinerja puskeswan',
     submenus: [
       { id: 'data-vaksinasi', name: 'Data Vaksinasi PMK & Penyakit Menular', path: '/keswan/data-vaksinasi' },
-      { id: 'lalu-lintas-ternak', name: 'Lalu Lintas Ternak', path: '/keswan/data-vaksinasi' },
-      { id: 'laporan-penyakit', name: 'Laporan Penyakit Ternak', path: '/keswan/data-vaksinasi' },
-      { id: 'puskeswan', name: 'Kinerja Pelayanan Puskeswan', path: '/keswan/puskeswan' },
+      { id: 'lalu-lintas-ternak', name: 'Lalu Lintas Ternak (SKKH)', path: '/keswan/lalu-lintas-ternak' },
+      { id: 'laporan-penyakit', name: 'Laporan Penyakit Ternak', path: '/keswan/laporan-penyakit' },
+      { id: 'puskeswan', name: 'Pusat Kesehatan Hewan & Puskeswanling', path: '/keswan/puskeswan' },
+      { id: 'stok-gudang', name: 'Stok Gudang Keswan', path: '/keswan/stok-gudang' },
     ],
   },
   {
@@ -79,8 +82,9 @@ export const MODULES_METADATA = [
     submenus: [
       { id: 'nkv', name: 'Nomor Kontrol Veteriner (NKV)', path: '/kesmavet/nkv' },
       { id: 'rph-tph-tpu', name: 'Data Pemotongan RPH, TPH, & TPU', path: '/kesmavet/rph-tph-tpu' },
-      { id: 'pakan-ternak', name: 'Pakan Ternak', path: '/kesmavet/rph-tph-tpu' },
-      { id: 'pasar-hewan', name: 'Pasar Hewan', path: '/kesmavet/rph-tph-tpu' },
+      { id: 'pakan-ternak', name: 'Pakan Ternak', path: '/kesmavet/pakan-ternak' },
+      { id: 'pasar-hewan', name: 'Pasar Hewan', path: '/kesmavet/pasar-hewan' },
+      { id: 'hewan-kurban', name: 'Pemotongan Hewan Kurban', path: '/kesmavet/hewan-kurban' },
     ],
   },
   {
@@ -134,7 +138,14 @@ export default function UserManagementModal({
       const res = await fetch('/api/anggota');
       const data = await res.json();
       if (Array.isArray(data)) {
-        setMembers(data);
+        // Jaminan deduplikasi di level frontend: 1 ID = 1 baris
+        const uniqueMap = new Map<number, AnggotaUser>();
+        data.forEach((m: AnggotaUser) => {
+          if (m && m.id && !uniqueMap.has(m.id)) {
+            uniqueMap.set(m.id, m);
+          }
+        });
+        setMembers(Array.from(uniqueMap.values()));
       }
     } catch {
       // Fallback
@@ -179,9 +190,9 @@ export default function UserManagementModal({
     setFormNipUsername('');
     setFormPassword('');
     setShowPassword(false);
-    setFormRole('Petugas Teknis');
+    setFormRole('Tim Keswan');
     setFormStatus('Aktif');
-    setFormPermissions(JSON.parse(JSON.stringify(DEFAULT_FULL_PERMISSIONS)));
+    setFormPermissions(getDefaultPermissionsForRole('Tim Keswan'));
     setFormError('');
     setShowFormModal(true);
   };
@@ -194,26 +205,40 @@ export default function UserManagementModal({
     setFormNipUsername(m.nip_username);
     setFormPassword('');
     setShowPassword(false);
-    setFormRole(m.role || 'Petugas Teknis');
+    setFormRole(m.role || 'Petugas Lapangan');
     setFormStatus(m.status || 'Aktif');
-    setFormPermissions(m.permissions || JSON.parse(JSON.stringify(DEFAULT_FULL_PERMISSIONS)));
+    setFormPermissions(m.permissions || getDefaultPermissionsForRole(m.role || 'Petugas Lapangan'));
     setFormError('');
     setShowFormModal(true);
   };
 
+  const handleRoleChange = (newRole: string) => {
+    setFormRole(newRole);
+    setFormPermissions(getDefaultPermissionsForRole(newRole));
+  };
+
   // Delete Member
   const handleDeleteMember = async (id: number, nama: string) => {
-    if (!confirm(`Hapus anggota "${nama}"? Anggota ini tidak akan bisa login lagi.`)) {
-      return;
-    }
+    const ok = await showConfirm({
+      title: 'Hapus Anggota Petugas',
+      message: `Hapus anggota "${nama}"? Anggota ini tidak akan bisa login lagi.`,
+      confirmText: 'Ya, Hapus',
+      cancelText: 'Batal',
+      type: 'danger',
+    });
+    if (!ok) return;
 
     try {
       const res = await fetch(`/api/anggota?id=${id}`, { method: 'DELETE' });
       if (res.ok) {
         setMembers((prev) => prev.filter((m) => m.id !== id));
+        showToast('Anggota berhasil dihapus', 'success');
+        await fetchMembers();
+      } else {
+        showToast('Gagal menghapus anggota', 'error');
       }
     } catch {
-      alert('Gagal menghapus anggota.');
+      showToast('Gagal menghapus anggota.', 'error');
     }
   };
 
@@ -501,66 +526,74 @@ export default function UserManagementModal({
               Tidak ada anggota yang cocok dengan filter pencarian.
             </div>
           ) : (
-            <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
+            <div className="border border-slate-300 dark:border-slate-700 rounded-2xl overflow-hidden shadow-2xs">
               <table className="w-full text-left text-xs whitespace-nowrap">
-                <thead className="bg-slate-50 text-slate-600 font-bold uppercase tracking-wider text-[11px] border-b border-slate-200">
+                <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold uppercase tracking-wider text-[11px] border-b border-slate-300 dark:border-slate-700">
                   <tr>
-                    <th className="p-3.5 w-12 text-center">NO</th>
-                    <th className="p-3.5">NAMA &amp; USERNAME</th>
-                    <th className="p-3.5">JABATAN</th>
-                    <th className="p-3.5">STATUS</th>
-                    <th className="p-3.5">HAK AKSES MODUL &amp; SUBMENU</th>
+                    <th className="p-3.5 w-12 text-center border-r border-slate-300 dark:border-slate-700">NO</th>
+                    <th className="p-3.5 border-r border-slate-300 dark:border-slate-700">NAMA &amp; USERNAME</th>
+                    <th className="p-3.5 border-r border-slate-300 dark:border-slate-700">JABATAN</th>
+                    <th className="p-3.5 border-r border-slate-300 dark:border-slate-700">STATUS</th>
+                    <th className="p-3.5 border-r border-slate-300 dark:border-slate-700">HAK AKSES MODUL &amp; SUBMENU</th>
                     <th className="p-3.5 text-center w-28">AKSI</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-slate-800">
+                <tbody className="divide-y divide-slate-300 dark:divide-slate-700 text-slate-800 dark:text-slate-200">
                   {filteredMembers.map((m, idx) => {
                     const perms: UserPermissions =
                       typeof m.permissions === 'object' && m.permissions !== null
                         ? m.permissions
                         : DEFAULT_FULL_PERMISSIONS;
+                    const isEven = idx % 2 === 0;
 
                     return (
-                      <tr key={m.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors">
-                        <td className="p-3.5 text-center font-sans text-slate-400">{idx + 1}</td>
-                        <td className="p-3.5">
-                          <div className="font-bold text-slate-900 text-sm">{m.nama}</div>
-                          <div className="text-slate-500 font-mono text-[11px] flex items-center gap-1 mt-0.5">
+                      <tr
+                        key={m.id}
+                        className={`transition-colors ${
+                          isEven
+                            ? 'bg-white dark:bg-slate-900/60 hover:bg-slate-50/80 dark:hover:bg-slate-800/60'
+                            : 'bg-slate-100 dark:bg-slate-800/50 hover:bg-slate-200/60 dark:hover:bg-slate-800/70'
+                        }`}
+                      >
+                        <td className="p-3.5 text-center font-sans text-slate-400 dark:text-slate-500 border-r border-slate-300 dark:border-slate-700">{idx + 1}</td>
+                        <td className="p-3.5 border-r border-slate-300 dark:border-slate-700">
+                          <div className="font-bold text-slate-900 dark:text-slate-100 text-sm">{m.nama}</div>
+                          <div className="text-slate-500 dark:text-slate-400 font-mono text-[11px] flex items-center gap-1 mt-0.5">
                             <KeyRound size={11} className="text-slate-400" />
                             <span>{m.nip_username}</span>
                           </div>
                         </td>
-                        <td className="p-3.5">
+                        <td className="p-3.5 border-r border-slate-300 dark:border-slate-700">
                           <span
                             className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold ${
                               m.role === 'Administrator'
-                                ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                                ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
                                 : m.role === 'Enumerator'
-                                ? 'bg-blue-100 text-blue-800 border border-blue-200'
-                                : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                ? 'bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                                : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
                             }`}
                           >
                             <Shield size={12} />
                             <span>{m.role || 'Petugas'}</span>
                           </span>
                         </td>
-                        <td className="p-3.5">
+                        <td className="p-3.5 border-r border-slate-300 dark:border-slate-700">
                           <span
                             className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold ${
                               m.status === 'Aktif'
-                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                : 'bg-slate-100 text-slate-500 border border-slate-200'
+                                ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
                             }`}
                           >
                             {m.status === 'Aktif' ? (
-                              <CheckCircle2 size={12} className="text-emerald-600" />
+                              <CheckCircle2 size={12} className="text-emerald-600 dark:text-emerald-400" />
                             ) : (
                               <XCircle size={12} className="text-slate-400" />
                             )}
                             <span>{m.status}</span>
                           </span>
                         </td>
-                        <td className="p-3.5">
+                        <td className="p-3.5 border-r border-slate-300 dark:border-slate-700">
                           <div className="flex flex-wrap gap-1.5 max-w-md">
                             {(['bitpro', 'keswan', 'kesmavet', 'aset'] as const).map((modKey) => {
                               const modPerm = perms[modKey];
@@ -574,19 +607,19 @@ export default function UserManagementModal({
                                   key={modKey}
                                   className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[11px] font-medium ${
                                     isFullEdit
-                                      ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
-                                      : 'bg-blue-50 text-blue-900 border-blue-200'
+                                      ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                                      : 'bg-blue-50 dark:bg-blue-950/40 text-blue-900 dark:text-blue-300 border-blue-200 dark:border-blue-800'
                                   }`}
                                   title={`${modKey.toUpperCase()} (${subCount} submenu aktif - ${isFullEdit ? 'Bisa Edit' : 'Hanya Lihat'})`}
                                 >
                                   {isFullEdit ? (
-                                    <Edit3 size={11} className="text-emerald-700 shrink-0" />
+                                    <Edit3 size={11} className="text-emerald-700 dark:text-emerald-400 shrink-0" />
                                   ) : (
-                                    <Eye size={11} className="text-blue-700 shrink-0" />
+                                    <Eye size={11} className="text-blue-700 dark:text-blue-400 shrink-0" />
                                   )}
                                   <span className="font-bold uppercase">{modKey}:</span>
                                   <span>{isFullEdit ? 'Edit' : 'Lihat'}</span>
-                                  <span className="text-[10px] text-slate-500">({subCount})</span>
+                                  <span className="text-[10px] text-slate-500 dark:text-slate-400">({subCount})</span>
                                 </span>
                               );
                             })}
@@ -693,7 +726,7 @@ export default function UserManagementModal({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="block text-xs font-bold text-slate-700">
-                      Nama Lengkap Petugas <span className="text-red-500">*</span>
+                      Nama Lengkap Petugas
                     </label>
                     <input
                       type="text"
@@ -707,7 +740,7 @@ export default function UserManagementModal({
 
                   <div className="space-y-1.5">
                     <label className="block text-xs font-bold text-slate-700">
-                      NIP / Username Login <span className="text-red-500">*</span>
+                      NIP / Username Login
                     </label>
                     <input
                       type="text"
@@ -721,8 +754,11 @@ export default function UserManagementModal({
 
                   <div className="space-y-1.5">
                     <label className="block text-xs font-bold text-slate-700">
-                      {isEditing ? 'Ganti Kata Sandi (Opsional)' : 'Kata Sandi Awal'}{' '}
-                      {!isEditing && <span className="text-red-500">*</span>}
+                      {isEditing ? (
+                        <>Ganti Kata Sandi <span className="text-[11px] text-slate-400 font-normal">(opsional)</span></>
+                      ) : (
+                        'Kata Sandi Awal'
+                      )}
                     </label>
                     <div className="relative">
                       <input
@@ -750,13 +786,16 @@ export default function UserManagementModal({
                       <label className="block text-xs font-bold text-slate-700">Jabatan / Role</label>
                       <select
                         value={formRole}
-                        onChange={(e) => setFormRole(e.target.value)}
+                        onChange={(e) => handleRoleChange(e.target.value)}
                         className="w-full min-h-touch h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-800 outline-none"
                       >
                         <option value="Administrator">Administrator</option>
-                        <option value="Petugas Teknis">Petugas Teknis</option>
-                        <option value="Enumerator">Enumerator</option>
-                        <option value="Staf Administrasi">Staf Administrasi</option>
+                        <option value="Petugas Lapangan">Petugas Lapangan</option>
+                        <option value="Tim Bitpro">Tim Bitpro</option>
+                        <option value="Tim Keswan">Tim Keswan</option>
+                        <option value="Tim Kesmavet">Tim Kesmavet</option>
+                        <option value="Puskeswan">Puskeswan</option>
+                        <option value="Petugas PKB">Petugas PKB</option>
                       </select>
                     </div>
 
@@ -815,6 +854,13 @@ export default function UserManagementModal({
                       className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold transition-colors"
                     >
                       Keswan Saja
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => applyPreset('kesmavet')}
+                      className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold transition-colors"
+                    >
+                      Kesmavet Saja
                     </button>
                   </div>
                 </div>

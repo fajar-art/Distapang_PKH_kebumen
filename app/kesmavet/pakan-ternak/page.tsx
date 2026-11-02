@@ -24,12 +24,17 @@ import PakanModals from '@/components/kesmavet/pakan-ternak/PakanModals';
 export default function PakanTernakPage() {
   const { isReady, canEdit } = usePageAuth('kesmavet', 'pakan-ternak');
 
-  // State Multi-Tahun
-  const [selectedYear, setSelectedYear] = useState<number>(2025);
-  const [availableYears, setAvailableYears] = useState<number[]>([2026, 2025, 2024]);
+  // State Multi-Tahun (Otomatis Tahun Berjalan)
+  const currentYear = useMemo(() => new Date().getFullYear(), []);
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [availableYears, setAvailableYears] = useState<number[]>([
+    new Date().getFullYear() + 1,
+    new Date().getFullYear(),
+    new Date().getFullYear() - 1,
+  ]);
   const [showAddYearModal, setShowAddYearModal] = useState<boolean>(false);
-  const [newYearInput, setNewYearInput] = useState<number>(2026);
-  const [copyFromYearInput, setCopyFromYearInput] = useState<number>(2025);
+  const [newYearInput, setNewYearInput] = useState<number>(new Date().getFullYear() + 1);
+  const [copyFromYearInput, setCopyFromYearInput] = useState<number>(new Date().getFullYear());
   const [isAddingYear, setIsAddingYear] = useState<boolean>(false);
 
   // State Mobile Tab: 'map' (Peta Visual) atau 'table' (Tabel Data)
@@ -58,13 +63,19 @@ export default function PakanTernakPage() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  // Muat Daftar Tahun dari API
+  // Muat Daftar Tahun dari API (Sinkronisasi Otomatis dengan Tahun Berjalan)
   const loadYears = async () => {
     try {
       const res = await fetch('/api/pakan-ternak?action=years');
       const result = await res.json();
       if (result.success && Array.isArray(result.years) && result.years.length > 0) {
-        setAvailableYears(result.years);
+        const merged = Array.from(new Set<number>([
+          currentYear + 1,
+          currentYear,
+          currentYear - 1,
+          ...result.years.map(Number),
+        ])).sort((a, b) => b - a);
+        setAvailableYears(merged);
       }
     } catch {
       console.warn('Gagal memuat daftar tahun');
@@ -275,7 +286,7 @@ export default function PakanTernakPage() {
   if (!isReady) return null;
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-purple-600 selection:text-white pb-24">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans selection:bg-purple-600 selection:text-white pb-24">
       {/* Toast Notification */}
       {toast && (
         <div
@@ -289,7 +300,7 @@ export default function PakanTernakPage() {
       )}
 
       {/* ── TOP HEADER (Tema Ungu Kesmavet) ── */}
-      <header className="border-b border-purple-100 bg-white/95 backdrop-blur-md sticky top-0 z-30 shadow-xs">
+      <header className="border-b border-purple-100 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md sticky top-0 z-30 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 min-h-[80px] sm:min-h-[88px] flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <Link
@@ -308,7 +319,7 @@ export default function PakanTernakPage() {
                 <span className="text-slate-300">/</span>
                 <span className="text-xs font-bold text-purple-700 whitespace-nowrap">Pakan Ternak</span>
               </div>
-              <h1 className="text-base sm:text-xl font-bold text-slate-900 tracking-tight leading-tight truncate">
+              <h1 className="text-base sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight truncate">
                 Data Kapasitas Pakan Kabupaten Kebumen Tahun {selectedYear}
               </h1>
             </div>
@@ -318,7 +329,7 @@ export default function PakanTernakPage() {
             <button
               onClick={handleExportExcel}
               title="Export Excel"
-              className="h-10 px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+              className="h-10 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
             >
               <Download size={15} strokeWidth={2.5} />
               <span>Export Excel</span>
@@ -330,55 +341,49 @@ export default function PakanTernakPage() {
       {/* ── WORKSPACE ── */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 sm:space-y-8">
         {/* Selector Tahun */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 bg-white p-3.5 rounded-2xl border border-purple-200 shadow-xs max-w-xl mx-auto">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-purple-200 bg-purple-50/70">
-            <span className="text-xs font-bold text-purple-950">Pilih Tahun:</span>
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-purple-200 dark:border-slate-800 shadow-xs max-w-xl mx-auto">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-purple-200 dark:border-purple-900/50 bg-purple-50/70 dark:bg-purple-950/30">
+            <span className="text-xs font-bold text-purple-950 dark:text-purple-300">Pilih Tahun:</span>
             <select
               value={selectedYear}
               onChange={(e) => setSelectedYear(Number(e.target.value))}
-              className="bg-transparent text-xs font-black text-purple-900 focus:outline-none cursor-pointer font-mono"
+              className="bg-transparent text-xs font-black text-purple-900 dark:text-purple-200 focus:outline-none cursor-pointer font-mono"
             >
               {availableYears.map((yr) => (
-                <option key={yr} value={yr}>
-                  Tahun {yr}
+                <option key={yr} value={yr} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+                  Tahun {yr} {yr === currentYear ? '(Tahun Berjalan)' : ''}
                 </option>
               ))}
             </select>
           </div>
-
-          {canEdit && (
-            <button
-              onClick={() => {
-                setNewYearInput(new Date().getFullYear() + 1);
-                setCopyFromYearInput(selectedYear);
-                setShowAddYearModal(true);
-              }}
-              className="h-9 px-3.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
-            >
-              <span>+ Tambah Tahun Baru</span>
-            </button>
-          )}
         </div>
 
-        {/* Tab Switcher Khusus Mobile */}
-        <div className="sm:hidden flex items-center bg-slate-200/80 p-1 rounded-2xl shadow-inner">
+        {/* ── TAB UTAMA SUBMENU (Folder Tab Model) ── */}
+        <div className="flex gap-2 border-b border-slate-200 dark:border-slate-800 pb-px overflow-x-auto no-scrollbar scroll-smooth -mx-4 px-4 sm:mx-0 sm:px-0">
           <button
+            type="button"
             onClick={() => setMobileTab('map')}
-            className={`flex-1 min-h-touch py-2.5 px-4 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
-              mobileTab === 'map' ? 'bg-purple-700 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
+            className={`flex-1 sm:flex-none min-h-touch h-11 px-4 sm:px-6 rounded-t-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 border-t border-x transition-all shrink-0 whitespace-nowrap cursor-pointer ${
+              mobileTab === 'map'
+                ? 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-purple-700 dark:text-purple-400 border-b-white dark:border-b-slate-900 translate-y-px shadow-xs'
+                : 'border-transparent text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white bg-slate-100/60 dark:bg-slate-800/40'
             }`}
           >
-            <MapIcon size={15} />
+            <MapIcon size={16} strokeWidth={2.5} />
             <span>Peta Sebaran</span>
           </button>
+
           <button
+            type="button"
             onClick={() => setMobileTab('table')}
-            className={`flex-1 min-h-touch py-2.5 px-4 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
-              mobileTab === 'table' ? 'bg-purple-700 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
+            className={`flex-1 sm:flex-none min-h-touch h-11 px-4 sm:px-6 rounded-t-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 border-t border-x transition-all shrink-0 whitespace-nowrap cursor-pointer ${
+              mobileTab === 'table'
+                ? 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-purple-700 dark:text-purple-400 border-b-white dark:border-b-slate-900 translate-y-px shadow-xs'
+                : 'border-transparent text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white bg-slate-100/60 dark:bg-slate-800/40'
             }`}
           >
-            <TableIcon size={15} />
-            <span>Tabel Data {selectedYear}</span>
+            <TableIcon size={16} strokeWidth={2.5} />
+            <span>Tabel Data</span>
           </button>
         </div>
 

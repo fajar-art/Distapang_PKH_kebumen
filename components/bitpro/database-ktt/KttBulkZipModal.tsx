@@ -410,22 +410,22 @@ export default function KttBulkZipModal({
                   )}
 
                   {/* Tabel Pratinjau File yang Cocok */}
-                  <div className="rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden max-h-60 overflow-y-auto">
+                  <div className="rounded-2xl border border-slate-300 dark:border-slate-700 overflow-hidden max-h-60 overflow-y-auto">
                     <table className="w-full text-xs text-left">
-                      <thead className="bg-slate-50 dark:bg-slate-800 sticky top-0 text-[11px] uppercase font-bold text-slate-500 border-b border-slate-200 dark:border-slate-700">
+                      <thead className="bg-slate-100 dark:bg-slate-800 sticky top-0 text-[11px] uppercase font-bold text-slate-700 dark:text-slate-300 border-b border-slate-300 dark:border-slate-700">
                         <tr>
-                          <th className="p-3">Nama Berkas</th>
-                          <th className="p-3">Folder di ZIP</th>
-                          <th className="p-3">KTT yang Cocok di Sistem</th>
+                          <th className="p-3 border-r border-slate-300 dark:border-slate-700">Nama Berkas</th>
+                          <th className="p-3 border-r border-slate-300 dark:border-slate-700">Folder di ZIP</th>
+                          <th className="p-3 border-r border-slate-300 dark:border-slate-700">KTT yang Cocok di Sistem</th>
                           <th className="p-3 text-center">Status</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      <tbody className="divide-y divide-slate-300 dark:divide-slate-700">
                         {parsedItems.slice(0, 50).map((it, i) => (
-                          <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                            <td className="p-3 font-semibold truncate max-w-[180px]">{it.filename}</td>
-                            <td className="p-3 text-slate-500 font-mono text-[11px] truncate max-w-[150px]">{it.zipPath}</td>
-                            <td className="p-3">
+                          <tr key={i} className="odd:bg-white even:bg-slate-100 dark:odd:bg-slate-900/60 dark:even:bg-slate-800/50 hover:bg-blue-50/60 dark:hover:bg-slate-800/80 transition-colors">
+                            <td className="p-3 font-semibold truncate max-w-[180px] border-r border-slate-300 dark:border-slate-700">{it.filename}</td>
+                            <td className="p-3 text-slate-500 dark:text-slate-400 font-mono text-[11px] truncate max-w-[150px] border-r border-slate-300 dark:border-slate-700">{it.zipPath}</td>
+                            <td className="p-3 border-r border-slate-300 dark:border-slate-700">
                               {it.matchedKtt ? (
                                 <span className="font-bold text-emerald-700 dark:text-emerald-400">
                                   {it.matchedKtt.namaKelompok} ({it.matchedKtt.kecamatan})

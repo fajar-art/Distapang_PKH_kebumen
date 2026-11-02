@@ -27,6 +27,7 @@ import PenyakitPetaTab from '@/components/keswan/laporan-penyakit/PenyakitPetaTa
 import PenyakitTableTab from '@/components/keswan/laporan-penyakit/PenyakitTableTab';
 import PenyakitModals from '@/components/keswan/laporan-penyakit/PenyakitModals';
 import { UniversalAuditModal } from '@/components/common/UniversalAuditModal';
+import { showConfirm, showToast } from '@/components/common/CustomToast';
 
 export default function LaporanPenyakitPage() {
   const { isReady, canCreate, canEdit, isAdmin: isAuthAdmin, userRole } = usePageAuth('keswan', 'laporan-penyakit');
@@ -39,11 +40,16 @@ export default function LaporanPenyakitPage() {
   // View state: 'map' (Peta Spasial) or 'table' (Rekapitulasi CRUD)
   const [activeView, setActiveView] = useState<'map' | 'table'>('map');
 
-  // Year filter & dynamic multi-year state
-  const [selectedYear, setSelectedYear] = useState<number>(2026);
-  const [availableYears, setAvailableYears] = useState<number[]>([2025, 2026]);
+  // Year filter & dynamic multi-year state (Otomatis Tahun Berjalan)
+  const currentYear = useMemo(() => new Date().getFullYear(), []);
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [availableYears, setAvailableYears] = useState<number[]>([
+    new Date().getFullYear() + 1,
+    new Date().getFullYear(),
+    new Date().getFullYear() - 1,
+  ]);
   const [showAddYearModal, setShowAddYearModal] = useState<boolean>(false);
-  const [newYearInput, setNewYearInput] = useState<number>(2027);
+  const [newYearInput, setNewYearInput] = useState<number>(new Date().getFullYear() + 1);
   const [isAddingYear, setIsAddingYear] = useState<boolean>(false);
 
   // Data Kasus Penyakit dari Database
@@ -78,13 +84,19 @@ export default function LaporanPenyakitPage() {
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [auditTarget, setAuditTarget] = useState<any | null>(null);
 
-  // ── LOAD AVAILABLE YEARS ──
+  // ── LOAD AVAILABLE YEARS (Sinkronisasi Otomatis dengan Tahun Berjalan) ──
   const loadAvailableYears = async () => {
     try {
       const res = await fetch('/api/laporan-penyakit?action=years');
       const json = await res.json();
       if (json.success && Array.isArray(json.years)) {
-        setAvailableYears(json.years);
+        const merged = Array.from(new Set<number>([
+          currentYear + 1,
+          currentYear,
+          currentYear - 1,
+          ...json.years.map(Number),
+        ])).sort((a, b) => b - a);
+        setAvailableYears(merged);
       }
     } catch (err) {
       console.warn('Gagal memuat tahun laporan penyakit:', err);
@@ -122,7 +134,7 @@ export default function LaporanPenyakitPage() {
   const handleAddYearSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newYearInput || newYearInput < 2000) {
-      alert('Masukkan tahun yang valid');
+      showToast('Masukkan tahun yang valid', 'warning');
       return;
     }
 
@@ -138,12 +150,12 @@ export default function LaporanPenyakitPage() {
         await loadAvailableYears();
         setSelectedYear(newYearInput);
         setShowAddYearModal(false);
-        alert(`Periode Tahun ${newYearInput} berhasil ditambahkan!`);
+        showToast(`Periode Tahun ${newYearInput} berhasil ditambahkan!`, 'success');
       } else {
-        alert(json.error || 'Gagal menambahkan tahun baru');
+        showToast(json.error || 'Gagal menambahkan tahun baru', 'error');
       }
     } catch (err: any) {
-      alert('Terjadi kesalahan: ' + err.message);
+      showToast('Terjadi kesalahan: ' + err.message, 'error');
     } finally {
       setIsAddingYear(false);
     }
@@ -153,16 +165,15 @@ export default function LaporanPenyakitPage() {
   const handleCaseSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (editingItem && !canEdit) {
-      alert('Hanya Administrator yang berhak mengedit data kasus penyakit.');
+      showToast('Hanya Administrator yang berhak mengedit data kasus penyakit.', 'warning');
       return;
     }
     if (!editingItem && !canCreate) {
-      alert('Anda tidak memiliki izin untuk menambah data.');
+      showToast('Anda tidak memiliki izin untuk menambah data.', 'warning');
       return;
     }
 
     try {
-
       setIsSubmitting(true);
       const kec = KECAMATAN_MAP_ITEMS.find((k) => k.id === formValues.kecamatan_id);
       const zone = getZoneByKecamatanId(formValues.kecamatan_id);
@@ -188,8 +199,9 @@ export default function LaporanPenyakitPage() {
           setShowAddModal(false);
           setEditingItem(null);
           loadCasesData(selectedYear);
+          showToast('Data kasus berhasil diperbarui', 'success');
         } else {
-          alert('Gagal memperbarui: ' + json.error);
+          showToast('Gagal memperbarui: ' + json.error, 'error');
         }
       } else {
         const res = await fetch('/api/laporan-penyakit', {
@@ -201,12 +213,13 @@ export default function LaporanPenyakitPage() {
         if (json.success) {
           setShowAddModal(false);
           loadCasesData(selectedYear);
+          showToast('Data kasus berhasil ditambahkan', 'success');
         } else {
-          alert('Gagal menambahkan: ' + json.error);
+          showToast('Gagal menambahkan: ' + json.error, 'error');
         }
       }
     } catch (err: any) {
-      alert('Terjadi kesalahan: ' + err.message);
+      showToast('Terjadi kesalahan: ' + err.message, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -215,18 +228,27 @@ export default function LaporanPenyakitPage() {
   // Delete Case
   const handleDeleteCase = async (id: number) => {
     if (!isAdmin && !canEdit) {
-      alert('Hanya Administrator yang berhak menghapus data.');
+      showToast('Hanya Administrator yang berhak menghapus data.', 'warning');
       return;
     }
-    if (!confirm('Apakah Anda yakin ingin menghapus data kasus penyakit ini?')) return;
+    const ok = await showConfirm({
+      title: 'Hapus Kasus Penyakit',
+      message: 'Apakah Anda yakin ingin menghapus data kasus penyakit ini?',
+      confirmText: 'Ya, Hapus',
+      cancelText: 'Batal',
+      type: 'danger',
+    });
+    if (!ok) return;
 
     try {
       const res = await fetch(`/api/laporan-penyakit/${id}`, { method: 'DELETE' });
       if (res.ok) {
         loadCasesData(selectedYear);
+        showToast('Data kasus berhasil dihapus', 'success');
       }
     } catch (err) {
       console.error('Delete error:', err);
+      showToast('Gagal menghapus data', 'error');
     }
   };
 
@@ -286,16 +308,16 @@ export default function LaporanPenyakitPage() {
       XLSX.utils.book_append_sheet(wb, ws, `Kasus_Penyakit_${selectedYear}`);
       XLSX.writeFile(wb, `Laporan_Penyakit_Hewan_Kebumen_${selectedYear}.xlsx`);
     } catch {
-      alert('Gagal mengekspor file Excel.');
+      showToast('Gagal mengekspor file Excel.', 'error');
     }
   };
 
   if (!isReady) return null;
 
   return (
-    <div className="min-h-screen bg-blue-50/20 text-slate-900 font-sans selection:bg-blue-600 selection:text-white pb-24">
-      {/* ── TOP HEADER ── */}
-      <header className="border-b border-blue-100 bg-white/95 backdrop-blur-md sticky top-0 z-30 shadow-xs print:hidden">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans selection:bg-blue-600 selection:text-white pb-24">
+      {/* ── TOP HEADER (Tema Biru Keswan) ── */}
+      <header className="border-b border-blue-100 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md sticky top-0 z-30 shadow-xs print:hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-5 min-h-[64px] sm:min-h-[88px] flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <Link
@@ -308,13 +330,13 @@ export default function LaporanPenyakitPage() {
 
             <div className="min-w-0">
               <div className="flex items-center gap-2 mb-0.5">
-                <Link href="/keswan" className="text-xs font-semibold text-slate-500 hover:text-blue-700 transition-colors truncate">
+                <Link href="/keswan" className="text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-blue-700 dark:hover:text-blue-400 transition-colors truncate">
                   Kesehatan Hewan (Keswan)
                 </Link>
-                <span className="text-slate-300">/</span>
-                <span className="text-xs font-bold text-blue-700 whitespace-nowrap">Laporan Penyakit</span>
+                <span className="text-slate-300 dark:text-slate-600">/</span>
+                <span className="text-xs font-bold text-blue-700 dark:text-blue-400 whitespace-nowrap">Laporan Penyakit</span>
               </div>
-              <h1 className="text-sm sm:text-xl font-extrabold text-slate-900 tracking-tight leading-tight line-clamp-2 sm:line-clamp-none">
+              <h1 className="text-sm sm:text-xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight line-clamp-2 sm:line-clamp-none">
                 Peta &amp; Rekapitulasi Kasus Penyakit Hewan
               </h1>
             </div>
@@ -325,7 +347,7 @@ export default function LaporanPenyakitPage() {
               onClick={() => window.print()}
               title="Cetak / PDF"
               aria-label="Cetak / PDF"
-              className="min-h-touch min-w-touch h-10 w-10 sm:w-auto sm:px-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center justify-center sm:gap-1.5 shadow-xs transition-colors cursor-pointer"
+              className="min-h-touch min-w-touch h-10 w-10 sm:w-auto sm:px-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold flex items-center justify-center sm:gap-1.5 shadow-xs transition-colors cursor-pointer"
             >
               <Printer size={15} />
               <span className="hidden sm:inline">Cetak / PDF</span>
@@ -335,7 +357,7 @@ export default function LaporanPenyakitPage() {
               onClick={handleExportExcel}
               title="Export Excel"
               aria-label="Export Excel"
-              className="min-h-touch min-w-touch h-10 w-10 sm:w-auto sm:px-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center justify-center sm:gap-1.5 shadow-xs transition-colors cursor-pointer"
+              className="min-h-touch min-w-touch h-10 w-10 sm:w-auto sm:px-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold flex items-center justify-center sm:gap-1.5 shadow-xs transition-colors cursor-pointer"
             >
               <Download size={15} />
               <span className="hidden sm:inline">Export Excel</span>
@@ -370,110 +392,104 @@ export default function LaporanPenyakitPage() {
       {/* ── WORKSPACE ── */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
         {/* Opsi Pilihan Tahun di Tengah */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 bg-white p-3.5 rounded-2xl border border-blue-200 shadow-xs max-w-xl mx-auto print:hidden">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-blue-200 bg-blue-50/70">
-            <Calendar className="text-blue-700" size={16} />
-            <span className="text-xs font-bold text-blue-900">Pilih Tahun:</span>
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-blue-200 dark:border-blue-800 shadow-xs max-w-xl mx-auto print:hidden">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/70 dark:bg-blue-950/40">
+            <Calendar className="text-blue-700 dark:text-blue-400" size={16} />
+            <span className="text-xs font-bold text-blue-900 dark:text-blue-300">Pilih Tahun:</span>
             <select
               value={selectedYear}
               onChange={(e) => setSelectedYear(Number(e.target.value))}
-              className="bg-transparent text-xs font-black text-blue-800 focus:outline-none cursor-pointer"
+              className="bg-transparent text-xs font-black text-blue-800 dark:text-blue-300 dark:bg-slate-900 focus:outline-none cursor-pointer"
             >
               {availableYears.map((yr) => (
-                <option key={yr} value={yr}>Tahun {yr}</option>
+                <option key={yr} value={yr} className="dark:bg-slate-900">
+                  Tahun {yr} {yr === currentYear ? '(Tahun Ini)' : ''}
+                </option>
               ))}
             </select>
           </div>
-
-          {isAdmin && (
-            <button
-              onClick={() => {
-                const maxYear = Math.max(...availableYears, 2026);
-                setNewYearInput(maxYear + 1);
-                setShowAddYearModal(true);
-              }}
-              className="h-9 px-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
-            >
-              <Plus size={14} />
-              <span>Tambah Tahun Baru</span>
-            </button>
-          )}
         </div>
 
         {/* KPI Metrik Ringkasan */}
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 print:hidden">
-          <div className="bg-white p-4.5 rounded-3xl border border-slate-200 shadow-xs flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-bold shadow-xs shrink-0">
-              <Activity size={22} />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 print:hidden">
+          <div className="bg-white dark:bg-slate-900 p-3.5 sm:p-4.5 rounded-2xl border border-slate-300 dark:border-slate-800 shadow-xs flex items-center gap-2.5 sm:gap-3.5">
+            <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-blue-600 text-white flex items-center justify-center font-bold shadow-xs shrink-0">
+              <Activity size={18} className="sm:hidden" />
+              <Activity size={22} className="hidden sm:block" />
             </div>
             <div className="min-w-0">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 truncate">Total Kasus Penyakit</p>
-              <p className="text-xl font-black text-slate-900">{totalKasus.toLocaleString('id-ID')} <span className="text-xs text-slate-500 font-semibold">Kasus</span></p>
-            </div>
-          </div>
-
-          <div className="bg-white p-4.5 rounded-3xl border border-slate-200 shadow-xs flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-2xl bg-rose-600 text-white flex items-center justify-center font-bold shadow-xs shrink-0">
-              <AlertTriangle size={22} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 truncate">Diagnosa Tertinggi</p>
-              <p className="text-base font-extrabold text-slate-900 truncate">
-                {topDiagnosa.nama} <span className="text-xs text-rose-600 font-bold">({topDiagnosa.count})</span>
+              <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 truncate">Total Kasus Penyakit</p>
+              <p className="text-base sm:text-xl font-black text-slate-900 dark:text-white truncate">
+                {totalKasus.toLocaleString('id-ID')} <span className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-semibold">Kasus</span>
               </p>
             </div>
           </div>
 
-          <div className="bg-white p-4.5 rounded-3xl border border-slate-200 shadow-xs flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-2xl bg-amber-600 text-white flex items-center justify-center font-bold shadow-xs shrink-0">
-              <MapPin size={22} />
+          <div className="bg-white dark:bg-slate-900 p-3.5 sm:p-4.5 rounded-2xl border border-slate-300 dark:border-slate-800 shadow-xs flex items-center gap-2.5 sm:gap-3.5">
+            <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-rose-600 text-white flex items-center justify-center font-bold shadow-xs shrink-0">
+              <AlertTriangle size={18} className="sm:hidden" />
+              <AlertTriangle size={22} className="hidden sm:block" />
             </div>
             <div className="min-w-0">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 truncate">Wilayah Kasus Terbanyak</p>
-              <p className="text-base font-extrabold text-slate-900 truncate">
-                Kec. {topKecamatan.nama} <span className="text-xs text-amber-600 font-bold">({topKecamatan.count})</span>
+              <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 truncate">Diagnosa Tertinggi</p>
+              <p className="text-xs sm:text-base font-extrabold text-slate-900 dark:text-white truncate">
+                {topDiagnosa.nama} <span className="text-[10px] sm:text-xs text-rose-600 dark:text-rose-400 font-bold">({topDiagnosa.count})</span>
               </p>
             </div>
           </div>
 
-          <div className="bg-white p-4.5 rounded-3xl border border-slate-200 shadow-xs flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-bold shadow-xs shrink-0">
-              <ShieldCheck size={22} />
+          <div className="bg-white dark:bg-slate-900 p-3.5 sm:p-4.5 rounded-2xl border border-slate-300 dark:border-slate-800 shadow-xs flex items-center gap-2.5 sm:gap-3.5">
+            <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-amber-600 text-white flex items-center justify-center font-bold shadow-xs shrink-0">
+              <MapPin size={18} className="sm:hidden" />
+              <MapPin size={22} className="hidden sm:block" />
             </div>
             <div className="min-w-0">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 truncate">Status Hak Akses</p>
-              <p className="text-xs font-black text-slate-900 flex items-center gap-1.5 truncate">
+              <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 truncate">Wilayah Terbanyak</p>
+              <p className="text-xs sm:text-base font-extrabold text-slate-900 dark:text-white truncate">
+                Kec. {topKecamatan.nama} <span className="text-[10px] sm:text-xs text-amber-600 dark:text-amber-400 font-bold">({topKecamatan.count})</span>
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-slate-900 p-3.5 sm:p-4.5 rounded-2xl border border-slate-300 dark:border-slate-800 shadow-xs flex items-center gap-2.5 sm:gap-3.5">
+            <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-bold shadow-xs shrink-0">
+              <ShieldCheck size={18} className="sm:hidden" />
+              <ShieldCheck size={22} className="hidden sm:block" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 truncate">Status Hak Akses</p>
+              <p className="text-[11px] sm:text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5 truncate">
                 <span className={`w-2 h-2 rounded-full ${isAdmin ? 'bg-blue-600' : 'bg-emerald-500'}`} />
-                <span>{isAdmin ? 'Administrator (Full CRUD)' : canEdit ? 'Operator (Bisa Edit)' : 'Pengunjung (View-Only)'}</span>
+                <span>{isAdmin ? 'Administrator' : canEdit ? 'Operator' : 'Viewer'}</span>
               </p>
             </div>
           </div>
         </div>
 
-        {/* View Switcher Tabs */}
-        <div className="flex items-center gap-2 p-1.5 bg-white rounded-2xl border border-blue-100 shadow-xs print:hidden">
+        {/* View Switcher Tabs (Folder Tab Model Monev KTT) */}
+        <div className="flex gap-2 border-b border-slate-200 dark:border-slate-800 pb-px overflow-x-auto no-scrollbar scroll-smooth -mx-4 px-4 sm:mx-0 sm:px-0 print:hidden">
           <button
             onClick={() => setActiveView('map')}
-            className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold flex items-center gap-2 transition-all cursor-pointer ${
+            className={`min-h-touch h-11 px-4 sm:px-6 rounded-t-xl text-xs sm:text-sm font-bold flex items-center gap-2 border-t border-x transition-all shrink-0 whitespace-nowrap cursor-pointer ${
               activeView === 'map'
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'text-slate-600 hover:text-blue-700 hover:bg-blue-50'
+                ? 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-blue-600 dark:text-blue-400 border-b-white dark:border-b-slate-900 translate-y-px shadow-xs'
+                : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 bg-slate-100/60 dark:bg-slate-800/60'
             }`}
           >
-            <MapIcon size={16} />
-            <span>Peta Sebaran Spasial &amp; Legenda Diagnosa</span>
+            <MapIcon size={16} strokeWidth={2.5} />
+            <span>Peta Sebaran Kasus</span>
           </button>
 
           <button
             onClick={() => setActiveView('table')}
-            className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold flex items-center gap-2 transition-all cursor-pointer ${
+            className={`min-h-touch h-11 px-4 sm:px-6 rounded-t-xl text-xs sm:text-sm font-bold flex items-center gap-2 border-t border-x transition-all shrink-0 whitespace-nowrap cursor-pointer ${
               activeView === 'table'
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'text-slate-600 hover:text-blue-700 hover:bg-blue-50'
+                ? 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-blue-600 dark:text-blue-400 border-b-white dark:border-b-slate-900 translate-y-px shadow-xs'
+                : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 bg-slate-100/60 dark:bg-slate-800/60'
             }`}
           >
-            <FileSpreadsheet size={16} />
-            <span>Tabel Rekapitulasi Data Kasus ({filteredCases.length} Baris)</span>
+            <FileSpreadsheet size={16} strokeWidth={2.5} />
+            <span>Tabel Rekapitulasi</span>
           </button>
         </div>
 

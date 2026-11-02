@@ -116,10 +116,10 @@ function Produksi2026Content() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-emerald-600 selection:text-white pb-20">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans selection:bg-emerald-600 selection:text-white pb-20">
       
       {/* ── TOP HEADER (Tema Hijau Bitpro) ── */}
-      <header className="border-b border-emerald-100 bg-white/95 backdrop-blur-md sticky top-0 z-30 shadow-xs">
+      <header className="border-b border-emerald-100 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md sticky top-0 z-30 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 min-h-[80px] sm:min-h-[88px] flex items-center justify-between gap-3">
           
           <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -139,7 +139,7 @@ function Produksi2026Content() {
                 <span className="text-slate-300">/</span>
                 <span className="text-xs font-bold text-emerald-700 whitespace-nowrap">Produksi {year}</span>
               </div>
-              <h1 className="text-base sm:text-xl font-bold text-slate-900 tracking-tight leading-tight truncate">
+              <h1 className="text-base sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight truncate">
                 Lembar Kerja Produksi Ternak Tahun {year}
               </h1>
             </div>
@@ -150,7 +150,7 @@ function Produksi2026Content() {
               onClick={handleExportExcel}
               title="Export Excel"
               aria-label="Export Excel"
-              className="min-h-touch min-w-touch h-11 w-11 sm:w-auto sm:px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-bold flex items-center justify-center sm:gap-2 transition-all shadow-xs cursor-pointer"
+              className="min-h-touch min-w-touch h-11 w-11 sm:w-auto sm:px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-bold flex items-center justify-center sm:gap-2 transition-all shadow-xs cursor-pointer"
             >
               <Download size={16} strokeWidth={2.5} />
               <span className="hidden sm:inline">Export Excel</span>
@@ -187,11 +187,11 @@ function Produksi2026Content() {
             {/* ── 2 DIAGRAM LINGKARAN (PRODUKSI DAGING & PRODUKSI TELUR) ── */}
             <section className="space-y-3">
               <div>
-                <h2 className="text-base sm:text-lg font-extrabold text-slate-900 flex items-center gap-2">
-                  <PieChartIcon size={20} strokeWidth={2.5} className="text-emerald-600" />
+                <h2 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                  <PieChartIcon size={20} strokeWidth={2.5} className="text-emerald-600 dark:text-emerald-400" />
                   <span>Visualisasi Proporsi Kontribusi Produksi 2026</span>
                 </h2>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Perbandingan persentase tonase komoditas daging dan produksi butir telur di Kabupaten Kebumen
                 </p>
               </div>
@@ -258,7 +258,7 @@ export default function Produksi2026() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-slate-50 flex items-center justify-center font-sans text-xs text-slate-500 uppercase tracking-widest animate-pulse">
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 dark:text-slate-400 flex items-center justify-center font-sans text-xs text-slate-500 uppercase tracking-widest animate-pulse">
           Memuat Data Produksi Peternakan...
         </div>
       }

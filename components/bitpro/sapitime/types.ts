@@ -26,12 +26,18 @@ export type Insemination = {
   mode_keberhasilan?: 'sistem' | 'manual';
   ibOrder?: number;
   totalIbCount?: number;
+  id_user?: number;
+  ownerPhone?: string;
+  registrationNumber?: string;
 };
 
 export type Cattle = {
   id: string;
   name: string;
   ownerName: string;
+  ownerPhone?: string;
+  registrationNumber?: string;
+  nik?: string;
   breed: string;
   birthDate: string;
   kecamatan: string;
@@ -44,6 +50,8 @@ export type Cattle = {
   cycleLength?: number;
   ibDate?: string;
   inseminations: Insemination[];
+  created_by?: string | null;
+  id_user?: number | null;
   createdAt?: string;
   updatedAt?: string;
 };

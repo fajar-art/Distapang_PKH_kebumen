@@ -2,9 +2,37 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, Clock, Edit2, Loader2, Send, AlertTriangle } from 'lucide-react';
+import { DESA_KEBUMEN_MAP } from '@/components/kesmavet/hewan-kurban/types';
 
-export type FieldOption = string | { key: string; label?: string; type?: string; [k: string]: any };
+export type FieldOption = string | { key: string; label?: string; type?: string; options?: any[]; [k: string]: any };
 export type AvailableFieldsProp = FieldOption[] | Record<string, string>;
+
+export const KECAMATAN_LIST = [
+  'Adimulyo', 'Alian', 'Ambal', 'Ayah', 'Bonorowo', 'Buayan', 'Buluspesantren',
+  'Gombong', 'Karanganyar', 'Karanggayam', 'Karangsambung', 'Kebumen', 'Klirong',
+  'Kutowinangun', 'Kuwarasan', 'Mirit', 'Padureso', 'Pejagoan', 'Petanahan',
+  'Poncowarno', 'Prembun', 'Puring', 'Rowokele', 'Sadang', 'Sempor', 'Sruweng'
+];
+
+export const PUSKESWAN_LIST = [
+  'Puskeswan Mirit',
+  'Puskeswan Klirong',
+  'Puskeswan Gombong',
+  'Puskeswan Buayan',
+  'Puskeswan Alian',
+  'Puskeswan Prembun',
+  'Puskeswan Kebumen',
+  'Puskeswan Karanganyar'
+];
+
+export const BULAN_LIST = [
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+];
+
+export const JENIS_KELAMIN_LIST = ['Jantan', 'Betina'];
+
+export const KATEGORI_PENYAKIT_LIST = ['Strategis', 'Zoonosis', 'Menular', 'Non-Menular', 'Parasiter', 'Metabolik'];
 
 export interface UniversalAuditModalProps {
   isOpen: boolean;
@@ -12,6 +40,7 @@ export interface UniversalAuditModalProps {
   recordId?: string | number | null;
   recordTitle?: string;
   recordName?: string;
+  recordData?: Record<string, any> | null;
   tableName: string;
   moduleKey: string;
   submenuKey: string;
@@ -33,6 +62,7 @@ export function UniversalAuditModal({
   recordId,
   recordTitle,
   recordName,
+  recordData,
   tableName,
   moduleKey,
   submenuKey,
@@ -45,6 +75,23 @@ export function UniversalAuditModal({
   const [newValue, setNewValue] = useState('');
   const [reason, setReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [masterDesaMap, setMasterDesaMap] = useState<Record<string, string[]>>(DESA_KEBUMEN_MAP);
+
+  // Ambil data wilayah dari database jika tersedia
+  useEffect(() => {
+    let isMounted = true;
+    fetch('/api/master-wilayah')
+      .then(res => res.json())
+      .then(json => {
+        if (isMounted && json.success && json.desaMap && Object.keys(json.desaMap).length > 0) {
+          setMasterDesaMap(json.desaMap);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const displayTitle = recordTitle || recordName || 'Detail Data';
 
@@ -52,12 +99,13 @@ export function UniversalAuditModal({
     if (Array.isArray(availableFields)) {
       return availableFields.map(item => {
         if (typeof item === 'string') {
-          return { key: item, label: formatLabel(item), type: undefined };
+          return { key: item, label: formatLabel(item), type: undefined, options: undefined };
         }
         return { 
           key: item.key, 
           label: item.label || formatLabel(item.key), 
-          type: item.type 
+          type: item.type,
+          options: item.options,
         };
       });
     } else if (availableFields && typeof availableFields === 'object') {
@@ -65,6 +113,7 @@ export function UniversalAuditModal({
         key,
         label: typeof label === 'string' ? label : formatLabel(key),
         type: undefined,
+        options: undefined,
       }));
     }
     return [];
@@ -161,6 +210,69 @@ export function UniversalAuditModal({
 
     const currentFieldObj = normalizedFields.find(f => f.key === selectedField);
     const fieldType = currentFieldObj?.type?.toLowerCase();
+
+    // 1. Cek apakah field ini memiliki opsi dropdown baku atau eksplisit
+    let dropdownList: string[] | null = null;
+    if (currentFieldObj?.options && Array.isArray(currentFieldObj.options) && currentFieldObj.options.length > 0) {
+      dropdownList = currentFieldObj.options.map((opt: any) => typeof opt === 'string' ? opt : String(opt.label || opt.value || opt));
+    } else {
+      const keyLower = selectedField.toLowerCase();
+      if (keyLower.includes('puskeswan')) {
+        if (tableName.includes('vaksinasi') || keyLower === 'puskeswan_clean') {
+          dropdownList = ['MIRIT', 'KLIRONG', 'GOMBONG', 'BUAYAN', 'ALIAN', 'PREMBUN', 'KEBUMEN', 'KARANGANYAR'];
+        } else {
+          dropdownList = PUSKESWAN_LIST;
+        }
+      } else if (keyLower.includes('kecamatan') || keyLower === 'kec') {
+        dropdownList = KECAMATAN_LIST;
+      } else if (keyLower.includes('desa') || keyLower === 'kelurahan') {
+        // Deteksi kecamatan dari recordData atau displayTitle
+        const recKec = recordData?.kecamatan || recordData?.distrik || recordData?.kec;
+        let matchedKec: string | undefined = undefined;
+        if (recKec && typeof recKec === 'string') {
+          matchedKec = KECAMATAN_LIST.find(k => k.toLowerCase() === recKec.trim().toLowerCase());
+        }
+        if (!matchedKec) {
+          matchedKec = KECAMATAN_LIST.find(k => displayTitle.toLowerCase().includes(k.toLowerCase()));
+        }
+
+        if (matchedKec && (masterDesaMap[matchedKec] || DESA_KEBUMEN_MAP[matchedKec])) {
+          dropdownList = masterDesaMap[matchedKec] || DESA_KEBUMEN_MAP[matchedKec] || [];
+        } else {
+          // Fallback seluruh desa se-Kebumen
+          const allDesas = Array.from(
+            new Set([
+              ...Object.values(masterDesaMap).flat(),
+              ...Object.values(DESA_KEBUMEN_MAP).flat(),
+            ])
+          ).filter(Boolean).sort();
+          dropdownList = allDesas;
+        }
+      } else if (keyLower === 'bulan') {
+        dropdownList = BULAN_LIST;
+      } else if (keyLower.includes('kelamin') || keyLower === 'sex' || keyLower === 'jenis_kelamin') {
+        dropdownList = JENIS_KELAMIN_LIST;
+      } else if (keyLower.includes('kategori_penyakit') || keyLower === 'kategori') {
+        dropdownList = KATEGORI_PENYAKIT_LIST;
+      }
+    }
+
+    if (dropdownList && dropdownList.length > 0) {
+      return (
+        <select
+          value={newValue}
+          onChange={e => setNewValue(e.target.value)}
+          className="w-full text-sm font-medium p-3 rounded-xl border border-emerald-300 bg-white focus:ring-2 focus:ring-emerald-500 outline-none cursor-pointer shadow-xs"
+        >
+          <option value="">-- Pilih {currentFieldObj?.label || formatLabel(selectedField)} yang benar --</option>
+          {dropdownList.map(opt => (
+            <option key={opt} value={opt}>
+              {opt}
+            </option>
+          ))}
+        </select>
+      );
+    }
 
     if (
       fieldType === 'date' ||
@@ -350,7 +462,10 @@ export function UniversalAuditModal({
                     </label>
                     <select
                       value={selectedField}
-                      onChange={e => setSelectedField(e.target.value)}
+                      onChange={e => {
+                        setSelectedField(e.target.value);
+                        setNewValue('');
+                      }}
                       className="w-full text-sm font-medium p-3 rounded-xl border border-emerald-300 bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none shadow-sm"
                     >
                       {dropdownOptions.map(opt => (

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { requireAdmin } from '@/lib/session';
+import { verifyDailyBackupPassword } from '@/lib/backupSecurity';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,6 +44,21 @@ export async function GET(req: Request) {
           timestamp: new Date().toISOString(),
         },
       });
+    }
+
+    // 🔒 Verifikasi Password Dinamis Harian (DDMMYYYY)
+    const passwordHeader = req.headers.get('x-backup-password');
+    const passwordParam = searchParams.get('password');
+    const inputPassword = passwordHeader || passwordParam;
+
+    if (!verifyDailyBackupPassword(inputPassword)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Password otorisasi backup salah!',
+        },
+        { status: 403 }
+      );
     }
 
     // 1. Ambil seluruh nama tabel di database
@@ -148,6 +164,19 @@ export async function POST(req: Request) {
     }
 
     const formData = await req.formData();
+    const inputPassword = (formData.get('password') as string) || req.headers.get('x-backup-password');
+
+    // 🔒 Verifikasi Password Dinamis Harian (DDMMYYYY)
+    if (!verifyDailyBackupPassword(inputPassword)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Password otorisasi salah!',
+        },
+        { status: 403 }
+      );
+    }
+
     const file = formData.get('file') as File | null;
 
     if (!file) {

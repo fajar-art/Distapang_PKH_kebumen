@@ -146,6 +146,16 @@ export async function POST(request: Request) {
         details: body,
       });
     } else {
+      const [recent]: any = await pool.query(
+        `SELECT id FROM monev_lapangan 
+         WHERE tahun = ? AND kec = ? AND desa = ? AND namaKtt = ? AND waktuMonev = ? 
+           AND created_at >= NOW() - INTERVAL 1 MINUTE LIMIT 1`,
+        [tahun || '2026', kec || '-', desa || '-', namaKtt || 'KTT', waktuMonev || '']
+      );
+      if (recent && recent.length > 0) {
+        return NextResponse.json({ status: 'success', id: recent[0].id });
+      }
+
       await pool.query(
         `INSERT INTO monev_lapangan (id, tahun, kec, desa, namaKtt, alamat, kegiatan, jenis, waktuMonev, kondisi, lat, lng, photo, catatan) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [id, tahun || '2026', kec || '-', desa || '-', namaKtt || 'KTT', alamat || '', kegiatan || '', jenis || 'Sapi', waktuMonev || '', finalKondisi, finalLat, finalLng, photo || null, catatan || '']

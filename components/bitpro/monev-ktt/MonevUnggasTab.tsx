@@ -27,6 +27,8 @@ import {
   KONDISI_KOSONG,
   KONDISI_UNGGAS_KOSONG,
   hitungKondisiUnggas,
+  DAFTAR_PUSKESWAN_BINAAN,
+  getPuskeswanByKecamatan,
 } from './types';
 import { compressImageFile, validatePdfFile } from '@/lib/file-compressor';
 import { cetakLaporanUnggas } from './monev-pdf-printer';
@@ -37,6 +39,8 @@ interface MonevUnggasTabProps {
   tahunBantuanFilter: string;
   onSelectTahunBantuan: (th: string) => void;
   daftarTahunAktif: string[];
+  filterPuskeswan?: string;
+  setFilterPuskeswan?: (val: string) => void;
   dbLapangan: FieldData[];
   canEdit: boolean;
   onSaveUnggas: (data: any) => Promise<void>;
@@ -51,6 +55,8 @@ export function MonevUnggasTab({
   tahunBantuanFilter,
   onSelectTahunBantuan,
   daftarTahunAktif,
+  filterPuskeswan,
+  setFilterPuskeswan,
   dbLapangan,
   canEdit,
   onSaveUnggas,
@@ -60,9 +66,17 @@ export function MonevUnggasTab({
   kttMasterList,
   onShowHistory,
 }: MonevUnggasTabProps) {
-  // ── FILTER KECAMATAN ──
+  // ── FILTER WILAYAH BINAAN & KECAMATAN ──
+  const [internalPuskeswan, setInternalPuskeswan] = useState<string>('Semua Wilayah Binaan');
+  const currentPuskeswan = filterPuskeswan ?? internalPuskeswan;
+  const updatePuskeswan = setFilterPuskeswan ?? setInternalPuskeswan;
+
   const [filterKecamatan, setFilterKecamatan] = useState<string>('Semua Kecamatan');
-  const daftarKecamatan = useMemo(() => Object.keys(DATA_WILAYAH).sort(), []);
+  const daftarKecamatan = useMemo(() => {
+    const all = Object.keys(DATA_WILAYAH).sort();
+    if (currentPuskeswan === 'Semua Wilayah Binaan') return all;
+    return all.filter((kec) => getPuskeswanByKecamatan(kec) === currentPuskeswan);
+  }, [currentPuskeswan]);
 
   // Filter Data Unggas
   const dbUnggasTabel = useMemo(() => {
@@ -70,10 +84,14 @@ export function MonevUnggasTab({
       const isUnggas = d.kategori === 'Unggas' || DAFTAR_JENIS_UNGGAS.some((u) => d.jenis?.toLowerCase().includes(u.toLowerCase()) || (d.jenis || '').toLowerCase().includes('ayam') || (d.jenis || '').toLowerCase().includes('itik') || (d.jenis || '').toLowerCase().includes('unggas'));
       if (!isUnggas) return false;
       if (tahunBantuanFilter !== 'Semua Tahun' && d.tahun !== tahunBantuanFilter) return false;
+      if (currentPuskeswan !== 'Semua Wilayah Binaan') {
+        const puskeswanItem = getPuskeswanByKecamatan(d.kec);
+        if (puskeswanItem !== currentPuskeswan) return false;
+      }
       if (filterKecamatan !== 'Semua Kecamatan' && (d.kec || '').toUpperCase() !== filterKecamatan.toUpperCase()) return false;
       return true;
     });
-  }, [dbLapangan, tahunBantuanFilter, filterKecamatan]);
+  }, [dbLapangan, tahunBantuanFilter, currentPuskeswan, filterKecamatan]);
 
   // Form State Unggas
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -343,28 +361,17 @@ export function MonevUnggasTab({
   return (
     <div className="space-y-8 animate-in fade-in duration-200">
       {/* ── 1. FILTER TAHUN BANTUAN & KECAMATAN ── */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+      <div className="bg-white p-5 rounded-2xl border border-slate-300 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
             <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
               <Filter size={16} strokeWidth={2.5} className="text-amber-600" />
-              <span>Filter Data Lapangan Unggas (Tahun &amp; Kecamatan)</span>
+              <span>Filter Data Lapangan</span>
             </h3>
-            <p className="text-xs text-slate-500">
-              Saring daftar kelompok penerima hibah unggas berdasarkan tahun bantuan dan kecamatan
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold px-3 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
-              Tahun: {tahunBantuanFilter}
-            </span>
-            <span className="text-xs font-bold px-3 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-              {filterKecamatan}
-            </span>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
           <div>
             <label className="block text-xs font-bold text-slate-600 mb-1">Pilih Tahun Bantuan</label>
             <select
@@ -376,6 +383,25 @@ export function MonevUnggasTab({
               {daftarTahunAktif.map((th) => (
                 <option key={th} value={th}>
                   Tahun Bantuan {th}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-600 mb-1">Pilih Wilayah Binaan (Puskeswan)</label>
+            <select
+              value={currentPuskeswan}
+              onChange={(e) => {
+                updatePuskeswan(e.target.value);
+                setFilterKecamatan('Semua Kecamatan');
+              }}
+              className="w-full min-h-touch h-10 px-3.5 rounded-xl border border-slate-300 bg-white font-bold text-xs text-slate-800 focus:border-amber-600 focus:ring-2 focus:ring-amber-500/20 outline-none transition-all shadow-2xs cursor-pointer"
+            >
+              <option value="Semua Wilayah Binaan">🏥 Semua Wilayah Binaan</option>
+              {DAFTAR_PUSKESWAN_BINAAN.map((p) => (
+                <option key={p} value={p}>
+                  {p}
                 </option>
               ))}
             </select>
@@ -400,40 +426,34 @@ export function MonevUnggasTab({
       </div>
 
       {/* ── 2. TABEL DAFTAR DATA UNGGAS (REPOSISI KE ATAS FORM) ── */}
-      <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
-        <div className="p-4 sm:p-6 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3 bg-white">
+      <div className="bg-white border border-slate-300 rounded-2xl shadow-xs overflow-hidden">
+        <div className="p-4 sm:p-6 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 bg-white">
           <div>
             <h3 className="font-bold text-base sm:text-lg text-slate-900 flex items-center gap-2">
-              <span>Daftar Data Lapangan Unggas ({tahunBantuanFilter} · {filterKecamatan})</span>
-              <span className="bg-amber-50 text-amber-800 border border-amber-200 text-xs font-bold px-2.5 py-0.5 rounded-full">
-                {dbUnggasTabel.length} Kelompok
-              </span>
+              <span>Daftar Data Lapangan Unggas</span>
             </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Pencatatan evaluasi komoditas ayam KUB, petelur, broiler, dan itik
-            </p>
           </div>
         </div>
 
         <div className="overflow-x-auto w-full">
           <table className="w-full text-xs sm:text-sm text-left whitespace-nowrap">
-            <thead className="bg-slate-50 text-slate-700 border-b border-slate-200 text-[11px] uppercase tracking-wider font-bold">
+            <thead className="bg-slate-100 dark:bg-slate-800/90 text-slate-700 dark:text-slate-300 border-b border-slate-300 dark:border-slate-700 text-[11px] uppercase tracking-wider font-bold">
               <tr>
-                <th className="px-4 py-3.5 text-center w-12">No</th>
-                <th className="px-4 py-3.5">Tahun</th>
-                <th className="px-4 py-3.5">Nama KTT</th>
-                <th className="px-4 py-3.5">Wilayah</th>
-                <th className="px-4 py-3.5">Komoditas</th>
-                <th className="px-4 py-3.5 text-right">Awal Total</th>
-                <th className="px-4 py-3.5 text-right">Mati</th>
-                <th className="px-4 py-3.5 text-right">Dijual</th>
-                <th className="px-4 py-3.5 text-right">Populasi Saat Ini</th>
-                <th className="px-4 py-3.5 text-right">Prod. Telur / Hari</th>
-                <th className="px-4 py-3.5 text-center">GPS, Foto &amp; Dokumen</th>
+                <th className="px-4 py-3.5 text-center w-12 border-r border-slate-300 dark:border-slate-700">No</th>
+                <th className="px-4 py-3.5 border-r border-slate-300 dark:border-slate-700">Tahun</th>
+                <th className="px-4 py-3.5 border-r border-slate-300 dark:border-slate-700">Nama KTT</th>
+                <th className="px-4 py-3.5 border-r border-slate-300 dark:border-slate-700">Wilayah</th>
+                <th className="px-4 py-3.5 border-r border-slate-300 dark:border-slate-700">Komoditas</th>
+                <th className="px-4 py-3.5 text-right border-r border-slate-300 dark:border-slate-700">Awal Total</th>
+                <th className="px-4 py-3.5 text-right border-r border-slate-300 dark:border-slate-700">Mati</th>
+                <th className="px-4 py-3.5 text-right border-r border-slate-300 dark:border-slate-700">Dijual</th>
+                <th className="px-4 py-3.5 text-right border-r border-slate-300 dark:border-slate-700">Populasi Saat Ini</th>
+                <th className="px-4 py-3.5 text-right border-r border-slate-300 dark:border-slate-700">Prod. Telur / Hari</th>
+                <th className="px-4 py-3.5 text-center border-r border-slate-300 dark:border-slate-700">GPS, Foto &amp; Dokumen</th>
                 <th className="px-4 py-3.5 text-center">Aksi / Cetak</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-300 dark:divide-slate-700">
               {dbUnggasTabel.map((d, idx) => {
                 const ku = d.kondisiUnggas || {
                   awalTotal: d.kondisi?.awalJantan || 0,
@@ -450,28 +470,35 @@ export function MonevUnggasTab({
                 const allPhotos = (d.photos && d.photos.length > 0) ? d.photos : (d.photo ? [d.photo] : []);
 
                 return (
-                  <tr key={d.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="px-4 py-3.5 text-center font-bold text-amber-700 text-xs">{idx + 1}</td>
-                    <td className="px-4 py-3.5 font-bold text-slate-800">
-                      <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200 text-xs">
+                  <tr
+                    key={d.id}
+                    className={`transition-colors ${
+                      idx % 2 === 0
+                        ? 'bg-white dark:bg-slate-900/60 hover:bg-blue-50/60 dark:hover:bg-slate-800/60'
+                        : 'bg-slate-100 dark:bg-slate-800/50 hover:bg-blue-50/60 dark:hover:bg-slate-800/70'
+                    }`}
+                  >
+                    <td className="px-4 py-3.5 text-center font-bold text-amber-700 dark:text-amber-400 text-xs border-r border-slate-300 dark:border-slate-700">{idx + 1}</td>
+                    <td className="px-4 py-3.5 font-bold text-slate-800 dark:text-slate-200 border-r border-slate-300 dark:border-slate-700">
+                      <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-xs">
                         {d.tahun}
                       </span>
                     </td>
-                    <td className="px-4 py-3.5 font-bold text-slate-900">{d.namaKtt}</td>
-                    <td className="px-4 py-3.5 text-slate-600 text-xs">
+                    <td className="px-4 py-3.5 font-bold text-slate-900 dark:text-slate-100 border-r border-slate-300 dark:border-slate-700">{d.namaKtt}</td>
+                    <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300 text-xs border-r border-slate-300 dark:border-slate-700">
                       {d.desa}, {d.kec}
                     </td>
-                    <td className="px-4 py-3.5">
-                      <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200 text-xs font-semibold">
+                    <td className="px-4 py-3.5 border-r border-slate-300 dark:border-slate-700">
+                      <span className="px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-xs font-semibold">
                         {d.jenis}
                       </span>
                     </td>
-                    <td className="px-4 py-3.5 text-right font-bold text-slate-700">{ku.awalTotal}</td>
-                    <td className="px-4 py-3.5 text-right font-bold text-red-600">{ku.kematian}</td>
-                    <td className="px-4 py-3.5 text-right font-bold text-slate-700">{ku.dijual}</td>
-                    <td className="px-4 py-3.5 text-right font-extrabold text-amber-700">{sisa} Ekor</td>
-                    <td className="px-4 py-3.5 text-right font-bold text-slate-700">{ku.rataanTelur || 0} Butir</td>
-                    <td className="px-4 py-3.5 text-center">
+                    <td className="px-4 py-3.5 text-right font-bold text-slate-700 dark:text-slate-300 border-r border-slate-300 dark:border-slate-700">{ku.awalTotal}</td>
+                    <td className="px-4 py-3.5 text-right font-bold text-red-600 dark:text-red-400 border-r border-slate-300 dark:border-slate-700">{ku.kematian}</td>
+                    <td className="px-4 py-3.5 text-right font-bold text-slate-700 dark:text-slate-300 border-r border-slate-300 dark:border-slate-700">{ku.dijual}</td>
+                    <td className="px-4 py-3.5 text-right font-extrabold text-amber-700 dark:text-amber-400 border-r border-slate-300 dark:border-slate-700">{sisa} Ekor</td>
+                    <td className="px-4 py-3.5 text-right font-bold text-slate-700 dark:text-slate-300 border-r border-slate-300 dark:border-slate-700">{ku.rataanTelur || 0} Butir</td>
+                    <td className="px-4 py-3.5 text-center border-r border-slate-300 dark:border-slate-700">
                       <div className="flex flex-wrap items-center justify-center gap-1.5 text-xs">
                         {d.lat ? (
                           <span className="text-emerald-700 font-bold flex items-center gap-0.5">
@@ -573,7 +600,7 @@ export function MonevUnggasTab({
       </div>
 
       {/* ── 3. FORMULIR INPUT MONEV TERNAK HIBAH UNGGAS ── */}
-      <div ref={formSectionRef} className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-xs space-y-6">
+      <div ref={formSectionRef} className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-300 shadow-xs space-y-6">
         <div className="flex items-center justify-between pb-4 border-b border-slate-200">
           <div>
             <h3 className="font-bold text-base sm:text-lg text-slate-900 flex items-center gap-2">
@@ -596,7 +623,7 @@ export function MonevUnggasTab({
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Bagian 1: Informasi Wilayah & Kelompok Unggas */}
-          <div className="p-5 rounded-2xl border border-slate-200 bg-slate-50/70 space-y-4">
+          <div className="p-5 rounded-2xl border border-slate-300 bg-slate-50/70 space-y-4">
             <h4 className="font-sans text-xs font-bold uppercase tracking-wider text-slate-700">
               1. Informasi Kelompok &amp; Komoditas Unggas
             </h4>
@@ -604,7 +631,7 @@ export function MonevUnggasTab({
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
               <div>
                 <label className="block text-xs font-sans font-bold uppercase tracking-wider text-slate-600 mb-1">
-                  Tahun Bantuan <span className="text-red-500">*</span>
+                  Tahun Bantuan
                 </label>
                 <select
                   value={formTahun}
@@ -619,7 +646,7 @@ export function MonevUnggasTab({
 
               <div>
                 <label className="block text-xs font-sans font-bold uppercase tracking-wider text-slate-600 mb-1">
-                  Nama Ketua Kelompok <span className="text-slate-400 font-normal">(Manual / Auto)</span>
+                  Nama Ketua Kelompok <span className="text-[11px] text-slate-400 font-normal">(opsional)</span>
                 </label>
                 <input
                   type="text"
@@ -632,7 +659,7 @@ export function MonevUnggasTab({
 
               <div>
                 <label className="block text-xs font-sans font-bold uppercase tracking-wider text-slate-600 mb-1">
-                  Kecamatan <span className="text-red-500">*</span>
+                  Kecamatan
                 </label>
                 <select
                   value={formKec}
@@ -652,7 +679,7 @@ export function MonevUnggasTab({
 
               <div>
                 <label className="block text-xs font-sans font-bold uppercase tracking-wider text-slate-600 mb-1">
-                  Desa / Kelurahan <span className="text-red-500">*</span>
+                  Desa / Kelurahan
                 </label>
                 <select
                   value={formDesa}
@@ -672,7 +699,7 @@ export function MonevUnggasTab({
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="relative" ref={kttInputRef}>
                 <label className="block text-xs font-sans font-bold uppercase tracking-wider text-slate-600 mb-1 flex items-center justify-between">
-                  <span>Nama Kelompok (KTT) <span className="text-red-500">*</span></span>
+                  <span>Nama Kelompok (KTT)</span>
                   <span className="text-[10px] font-semibold text-amber-700">🔍 Live Search Master</span>
                 </label>
                 <div className="relative">
@@ -716,7 +743,7 @@ export function MonevUnggasTab({
 
               <div>
                 <label className="block text-xs font-sans font-bold uppercase tracking-wider text-slate-600 mb-1">
-                  Jenis Komoditas Unggas <span className="text-red-500">*</span>
+                  Jenis Komoditas Unggas
                 </label>
                 <select
                   value={formJenis}
@@ -731,7 +758,7 @@ export function MonevUnggasTab({
 
               <div>
                 <label className="block text-xs font-sans font-bold uppercase tracking-wider text-slate-600 mb-1">
-                  Waktu Pelaksanaan Monev <span className="text-red-500">*</span>
+                  Waktu Pelaksanaan Monev
                 </label>
                 <input
                   type="date"
@@ -745,7 +772,7 @@ export function MonevUnggasTab({
           </div>
 
           {/* Bagian 2: Kondisi Ternak Unggas (Sesuai Page 2 PDF) */}
-          <div className="p-5 rounded-2xl border border-slate-200 bg-white space-y-4 shadow-2xs">
+          <div className="p-5 rounded-2xl border border-slate-300 bg-white space-y-4 shadow-2xs">
             <h4 className="font-sans text-xs font-bold uppercase tracking-wider text-slate-700">
               2. Kondisi Perkembangan Ternak Unggas (Sesuai Lembar Monev Unggas)
             </h4>
@@ -783,15 +810,17 @@ export function MonevUnggasTab({
             </div>
 
             {/* Perhitungan Populasi Unggas Saat Ini */}
-            <div className="p-4 rounded-xl border border-amber-200 bg-amber-50/60 flex items-center justify-between">
+            <div className="p-4 rounded-2xl border border-amber-300 bg-amber-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
               <div>
                 <span className="text-xs font-bold text-amber-900 block uppercase tracking-wider">
                   4. Populasi Ternak Saat Ini (a - b - c)
                 </span>
                 <span className="text-xs text-slate-600">Terhitung otomatis oleh sistem monev</span>
               </div>
-              <div className="text-right">
-                <span className="font-extrabold text-2xl text-amber-800">{kalkulasiUnggas.populasiSaatIni} Ekor</span>
+              <div className="self-start sm:self-auto">
+                <span className="inline-block font-extrabold text-xl sm:text-2xl text-amber-800 bg-white/90 px-3.5 py-1 rounded-xl border border-amber-200 shadow-2xs">
+                  {kalkulasiUnggas.populasiSaatIni} Ekor
+                </span>
               </div>
             </div>
 
@@ -835,7 +864,7 @@ export function MonevUnggasTab({
           </div>
 
           {/* Bagian 3: GPS (Wajib) & Foto Dokumentasi Unggas */}
-          <div className="p-5 rounded-2xl border border-slate-200 bg-slate-50/70 space-y-4">
+          <div className="p-5 rounded-2xl border border-slate-300 bg-slate-50/70 space-y-4">
             <h4 className="font-sans text-xs font-bold uppercase tracking-wider text-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <span className="flex items-start sm:items-center gap-1.5">
                 <MapPin size={16} strokeWidth={2.5} className="text-amber-600 shrink-0 mt-0.5 sm:mt-0" />
@@ -850,7 +879,7 @@ export function MonevUnggasTab({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-xs font-sans font-bold uppercase tracking-wider text-slate-600">
-                    Titik Koordinat Kandang Unggas <span className="text-red-500">*</span>
+                    Titik Koordinat Kandang Unggas
                   </label>
                   <button
                     type="button"
@@ -1025,9 +1054,9 @@ export function MonevUnggasTab({
 
             {/* Grid Tanda Tangan: Desktop Samping Kanan-Kiri, Mobile Atas-Bawah */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-3.5 rounded-xl border border-slate-200 bg-white/90 space-y-2.5 shadow-2xs">
+              <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-3 shadow-2xs">
                 <div>
-                  <label className="block text-xs font-sans font-bold uppercase tracking-wider text-slate-600 mb-1">
+                  <label className="block text-xs font-sans font-bold uppercase tracking-wider text-slate-600 mb-1.5">
                     Nama Petugas Monev 1
                   </label>
                   <input
@@ -1038,17 +1067,19 @@ export function MonevUnggasTab({
                     className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold focus:border-amber-500 outline-none"
                   />
                 </div>
-                <DigitalSignaturePad
-                  label="Tanda Tangan Petugas 1"
-                  value={kondisiUnggas.ttdPetugas1}
-                  onChange={(val) => updateKondisiUnggas('ttdPetugas1', val)}
-                  helperText="Goreskan tanda tangan digital untuk Petugas Monev 1."
-                />
+                <div className="pt-2 border-t border-slate-100">
+                  <DigitalSignaturePad
+                    label="Tanda Tangan Petugas 1"
+                    value={kondisiUnggas.ttdPetugas1}
+                    onChange={(val) => updateKondisiUnggas('ttdPetugas1', val)}
+                    helperText="Goreskan tanda tangan digital untuk Petugas Monev 1."
+                  />
+                </div>
               </div>
 
-              <div className="p-3.5 rounded-xl border border-slate-200 bg-white/90 space-y-2.5 shadow-2xs">
+              <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-3 shadow-2xs">
                 <div>
-                  <label className="block text-xs font-sans font-bold uppercase tracking-wider text-slate-600 mb-1">
+                  <label className="block text-xs font-sans font-bold uppercase tracking-wider text-slate-600 mb-1.5">
                     Nama Petugas Monev 2 (Opsional)
                   </label>
                   <input
@@ -1059,12 +1090,14 @@ export function MonevUnggasTab({
                     className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold focus:border-amber-500 outline-none"
                   />
                 </div>
-                <DigitalSignaturePad
-                  label="Tanda Tangan Petugas 2 (Opsional)"
-                  value={kondisiUnggas.ttdPetugas2}
-                  onChange={(val) => updateKondisiUnggas('ttdPetugas2', val)}
-                  helperText="Goreskan tanda tangan digital untuk Petugas Monev 2."
-                />
+                <div className="pt-2 border-t border-slate-100">
+                  <DigitalSignaturePad
+                    label="Tanda Tangan Petugas 2 (Opsional)"
+                    value={kondisiUnggas.ttdPetugas2}
+                    onChange={(val) => updateKondisiUnggas('ttdPetugas2', val)}
+                    helperText="Goreskan tanda tangan digital untuk Petugas Monev 2."
+                  />
+                </div>
               </div>
             </div>
           </div>

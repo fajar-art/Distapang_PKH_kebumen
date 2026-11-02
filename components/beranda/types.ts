@@ -17,6 +17,7 @@ import {
   Store,
   Truck,
   Boxes,
+  Beef,
 } from 'lucide-react';
 
 export interface SubmenuItem {
@@ -170,7 +171,7 @@ export const MODULE_NAV_DATA: ModuleNavGroup[] = [
         name: 'Pusat Kesehatan Hewan',
         href: '/keswan/puskeswan',
         icon: Building2,
-        desc: 'Pelayanan Pasien & Puskeswan',
+        desc: 'Pelayanan Pasien, Puskeswanling & Profil',
       },
       {
         id: 'stok-gudang',
@@ -185,7 +186,7 @@ export const MODULE_NAV_DATA: ModuleNavGroup[] = [
     id: 'kesmavet',
     name: 'Tim Kerja Kesmavet',
     shortDesc: 'Kesehatan Masyarakat Veteriner',
-    badge: '4 Menu',
+    badge: '5 Menu',
     color: {
       accent: 'bg-purple-500',
       lightBadge: 'bg-purple-50 text-purple-700 border-purple-200',
@@ -226,6 +227,13 @@ export const MODULE_NAV_DATA: ModuleNavGroup[] = [
         href: '/kesmavet/pasar-hewan',
         icon: Store,
         desc: 'Monitoring Ternak & Transaksi Pasar',
+      },
+      {
+        id: 'hewan-kurban',
+        name: 'Pemotongan Hewan Kurban',
+        href: '/kesmavet/hewan-kurban',
+        icon: Beef,
+        desc: 'Pencatatan Hewan Kurban Wilayah',
       },
     ],
   },

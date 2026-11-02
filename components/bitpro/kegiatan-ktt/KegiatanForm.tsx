@@ -9,6 +9,7 @@ import {
   Image as ImageIcon,
   CheckCircle2,
   X,
+  Loader2,
 } from 'lucide-react';
 import { DAFTAR_TIM_PELAKSANA, PRESET_KEGIATAN, KTTMaster } from './types';
 
@@ -44,6 +45,7 @@ interface KegiatanFormProps {
   setPreviewPhotoModal: (val: { url: string; title: string } | null) => void;
   handleSubmit: (e: React.FormEvent) => void;
   resetForm: () => void;
+  isSaving?: boolean;
 }
 
 export function KegiatanForm({
@@ -64,30 +66,34 @@ export function KegiatanForm({
   setPreviewPhotoModal,
   handleSubmit,
   resetForm,
+  isSaving = false,
 }: KegiatanFormProps) {
   if (!(canCreate ?? canEdit)) return null;
 
   return (
-    <section id="form-catat-kegiatan" className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-6">
-      <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-xs">
-            <Plus size={20} strokeWidth={2.5} />
+    <section id="form-catat-kegiatan" className="bg-white rounded-3xl border border-slate-300 shadow-sm p-4 sm:p-7 space-y-5 sm:space-y-6">
+      <div className="flex items-center justify-between pb-3.5 border-b border-slate-200">
+        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-xs shrink-0">
+            <Plus size={18} strokeWidth={2.5} className="sm:hidden" />
+            <Plus size={20} strokeWidth={2.5} className="hidden sm:block" />
           </div>
-          <div>
-            <h3 className="font-extrabold text-slate-900 text-base sm:text-lg flex items-center gap-2">
+          <div className="min-w-0">
+            <h3 className="font-extrabold text-slate-900 text-sm sm:text-lg flex items-center gap-2 truncate leading-snug">
               {editingId ? (
                 <>
-                  <Edit2 size={18} className="text-emerald-700" />
-                  <span>Edit Catatan Kegiatan Lapangan</span>
+                  <Edit2 size={16} className="text-emerald-700 shrink-0" />
+                  <span className="truncate">Edit Catatan Kegiatan</span>
                 </>
               ) : (
-                <span>Catat Kegiatan / Pembinaan KTT Baru</span>
+                <span className="truncate">Catat Kegiatan Baru</span>
               )}
             </h3>
-            <p className="text-xs text-slate-500">
-              {editingId ? `Sedang mengubah data ID: ${editingId}` : 'Formulir pencatatan langsung aktivitas pendampingan kelompok tani ternak'}
-            </p>
+            {editingId && (
+              <p className="text-[11px] sm:text-xs text-slate-500 truncate">
+                Sedang mengubah data ID: {editingId}
+              </p>
+            )}
           </div>
         </div>
 
@@ -95,9 +101,9 @@ export function KegiatanForm({
           <button
             type="button"
             onClick={resetForm}
-            className="text-xs font-bold px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+            className="text-xs font-bold px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer shrink-0"
           >
-            ✕ Batalkan Edit
+            ✕ Batal
           </button>
         )}
       </div>
@@ -106,7 +112,7 @@ export function KegiatanForm({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-              Tanggal Kegiatan <span className="text-red-500">*</span>
+              Tanggal Kegiatan
             </label>
             <input
               type="date"
@@ -119,7 +125,7 @@ export function KegiatanForm({
 
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-              Tim Pelaksana <span className="text-red-500">*</span>
+              Tim Pelaksana
             </label>
             <select
               value={formData.tim_pelaksana}
@@ -139,11 +145,8 @@ export function KegiatanForm({
         <div className="relative">
           <div className="flex items-center justify-between mb-1">
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-              Nama Kelompok Tani Ternak (KTT) <span className="text-red-500">*</span>
+              Nama Kelompok Tani Ternak (KTT)
             </label>
-            <span className="text-[11px] text-emerald-700 font-semibold">
-              Live Search Database KTT (ketik cth: &quot;gom&quot;)
-            </span>
           </div>
 
           <div className="relative">
@@ -238,7 +241,7 @@ export function KegiatanForm({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-              Kecamatan
+              Kecamatan <span className="text-[11px] text-slate-400 font-normal">(opsional)</span>
             </label>
             <input
               type="text"
@@ -250,7 +253,7 @@ export function KegiatanForm({
           </div>
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-              Desa
+              Desa <span className="text-[11px] text-slate-400 font-normal">(opsional)</span>
             </label>
             <input
               type="text"
@@ -266,9 +269,8 @@ export function KegiatanForm({
         <div>
           <div className="flex items-center justify-between mb-1">
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-              Nama / Jenis Kegiatan <span className="text-red-500">*</span>
+              Nama / Jenis Kegiatan
             </label>
-            <span className="text-[11px] text-slate-400">Pilih rekomendasi di bawah</span>
           </div>
           <input
             type="text"
@@ -297,7 +299,7 @@ export function KegiatanForm({
         {/* Hasil & Catatan Kegiatan */}
         <div>
           <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-            Uraian Hasil Kegiatan &amp; Arahan Petugas
+            Uraian Hasil Kegiatan &amp; Arahan Petugas <span className="text-[11px] text-slate-400 font-normal">(opsional)</span>
           </label>
           <textarea
             rows={3}
@@ -319,7 +321,7 @@ export function KegiatanForm({
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">
-                  Koordinat GPS
+                  Koordinat GPS <span className="text-[10px] text-slate-400 font-normal">(opsional)</span>
                 </label>
                 <button
                   type="button"
@@ -353,7 +355,7 @@ export function KegiatanForm({
 
             <div>
               <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1">
-                Dokumentasi Foto Lapangan (Maks 2 MB)
+                Dokumentasi Foto Lapangan <span className="text-[10px] text-slate-400 font-normal">(opsional, maks 2 MB)</span>
               </label>
 
               {/* Hidden File Inputs: Kamera HP Asli & Galeri Berkas */}
@@ -444,9 +446,17 @@ export function KegiatanForm({
           )}
           <button
             type="submit"
-            className="flex-1 min-h-touch h-11 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold shadow-xs transition-all cursor-pointer"
+            disabled={isSaving}
+            className="flex-1 min-h-touch h-11 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold shadow-xs transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {editingId ? 'Simpan Perubahan Kegiatan' : 'Simpan Log Kegiatan'}
+            {isSaving ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                <span>Menyimpan...</span>
+              </>
+            ) : (
+              editingId ? 'Simpan Perubahan Kegiatan' : 'Simpan Log Kegiatan'
+            )}
           </button>
         </div>
       </form>

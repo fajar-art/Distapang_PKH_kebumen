@@ -35,27 +35,27 @@ export default function IbCalvingIntervalSection({
 
       <div className="overflow-x-auto w-full">
         <table className="w-full text-xs sm:text-sm text-left whitespace-nowrap">
-          <thead className="bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700 text-[11px] uppercase tracking-wider font-bold">
+          <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-b border-slate-300 dark:border-slate-700 text-[11px] uppercase tracking-wider font-bold">
             <tr>
-              <th className="px-5 py-4">Identitas Peternak & Sapi</th>
-              <th className="px-5 py-4">Kelahiran Ke-</th>
-              <th className="px-5 py-4">Kelahiran Sebelumnya</th>
-              <th className="px-5 py-4">Kelahiran Sekarang</th>
-              <th className="px-5 py-4">Interval Waktu</th>
+              <th className="px-5 py-4 border-r border-slate-300 dark:border-slate-700">Identitas Peternak &amp; Sapi</th>
+              <th className="px-5 py-4 border-r border-slate-300 dark:border-slate-700">Kelahiran Ke-</th>
+              <th className="px-5 py-4 border-r border-slate-300 dark:border-slate-700">Kelahiran Sebelumnya</th>
+              <th className="px-5 py-4 border-r border-slate-300 dark:border-slate-700">Kelahiran Sekarang</th>
+              <th className="px-5 py-4 border-r border-slate-300 dark:border-slate-700">Interval Waktu</th>
               <th className="px-5 py-4">Kategori Efisiensi</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-800 dark:text-slate-200">
+          <tbody className="divide-y divide-slate-300 dark:divide-slate-700 text-slate-800 dark:text-slate-200">
             {calvingIntervals.map((row, idx) => (
-              <tr key={`${row.cattleId}-${idx}`} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors">
-                <td className="px-5 py-4">
+              <tr key={`${row.cattleId}-${idx}`} className="odd:bg-white even:bg-slate-100 dark:odd:bg-slate-900/60 dark:even:bg-slate-800/50 hover:bg-blue-50/60 dark:hover:bg-slate-800/80 transition-colors">
+                <td className="px-5 py-4 border-r border-slate-300 dark:border-slate-700">
                   <span className="font-bold text-slate-900 dark:text-slate-100 block">{row.ownerName || 'Tanpa Nama'}</span>
                   <span className="text-emerald-700 dark:text-emerald-400 font-semibold text-xs ml-4">Sapi: {row.cattleName}</span>
                 </td>
-                <td className="px-5 py-4 font-bold text-slate-700 dark:text-slate-300">{row.calvingKe + 1}</td>
-                <td className="px-5 py-4 text-slate-600 dark:text-slate-400">{row.kelahiranSebelumnya}</td>
-                <td className="px-5 py-4 font-bold text-slate-900 dark:text-slate-100">{row.kelahiranSekarang}</td>
-                <td className="px-5 py-4 font-bold text-slate-900 dark:text-slate-100">
+                <td className="px-5 py-4 font-bold text-slate-700 dark:text-slate-300 border-r border-slate-300 dark:border-slate-700">{row.calvingKe + 1}</td>
+                <td className="px-5 py-4 text-slate-600 dark:text-slate-400 border-r border-slate-300 dark:border-slate-700">{row.kelahiranSebelumnya}</td>
+                <td className="px-5 py-4 font-bold text-slate-900 dark:text-slate-100 border-r border-slate-300 dark:border-slate-700">{row.kelahiranSekarang}</td>
+                <td className="px-5 py-4 font-bold text-slate-900 dark:text-slate-100 border-r border-slate-300 dark:border-slate-700">
                   {row.intervalHari} hari <span className="text-slate-500 dark:text-slate-400 font-normal text-xs">({row.intervalBulan} bln)</span>
                 </td>
                 <td className="px-5 py-4">

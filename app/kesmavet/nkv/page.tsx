@@ -10,15 +10,17 @@ import { NKVRecord, fajarFormatNkvRecord } from '@/components/kesmavet/nkv/types
 import NkvKpiSection from '@/components/kesmavet/nkv/NkvKpiSection';
 import NkvTableSection from '@/components/kesmavet/nkv/NkvTableSection';
 import NkvModal from '@/components/kesmavet/nkv/NkvModal';
+import { showToast, showConfirm } from '@/components/common/CustomToast';
 
 export default function NKVPage() {
-  const { isReady, canCreate, canEdit } = usePageAuth('kesmavet', 'nkv');
+  const { isReady, canCreate, canEdit, isAdmin } = usePageAuth('kesmavet', 'nkv');
   const [dataNkv, setDataNkv] = useState<NKVRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterJenis, setFilterJenis] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState<Omit<NKVRecord, 'id'>>({
     namaUsaha: '',
@@ -101,40 +103,39 @@ export default function NKVPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!canEdit) {
-      alert('Hanya Administrator yang berhak menghapus data NKV.');
-      return;
-    }
-    if (confirm('Apakah Anda yakin ingin menghapus data unit usaha NKV ini?')) {
-      try {
-        const res = await fetch(`/api/nkv?id=${id}`, { method: 'DELETE' });
-        const json = await res.json();
-        if (json.success) {
-          setDataNkv((prev) => prev.filter((item) => item.id !== id));
-        } else {
-          alert('Gagal menghapus: ' + json.error);
-        }
-      } catch {
-        alert('Terjadi kesalahan saat menghapus data.');
+    const ok = await showConfirm({
+      title: 'Hapus Unit Usaha NKV',
+      message: 'Apakah Anda yakin ingin menghapus data unit usaha NKV ini?',
+      confirmText: 'Ya, Hapus',
+      cancelText: 'Batal',
+      type: 'danger',
+    });
+    if (!ok) return;
+
+    try {
+      const res = await fetch(`/api/nkv?id=${id}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (json.success) {
+        setDataNkv((prev) => prev.filter((item) => item.id !== id));
+        showToast.success('Data unit usaha NKV berhasil dihapus.');
+      } else {
+        showToast.error('Gagal menghapus: ' + json.error);
       }
+    } catch {
+      showToast.error('Terjadi kesalahan saat menghapus data.');
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingId && !canEdit) {
-      alert('Hanya Administrator yang berhak mengedit data NKV.');
-      return;
-    }
-    if (!editingId && !canCreate) {
-      alert('Anda tidak memiliki izin untuk menambah data.');
-      return;
-    }
+    if (isSubmitting) return;
     if (!formData.namaUsaha) {
-      alert('Nama Usaha wajib diisi!');
+      showToast.warning('Nama Usaha wajib diisi!');
       return;
     }
+
     try {
+      setIsSubmitting(true);
       if (editingId) {
         const res = await fetch('/api/nkv', {
           method: 'PUT',
@@ -158,9 +159,10 @@ export default function NKVPage() {
           setDataNkv((prev) =>
             prev.map((item) => (item.id === editingId ? { ...item, ...formData } : item))
           );
-          alert('Data NKV berhasil diperbarui!');
+          showToast.success('Data NKV berhasil diperbarui!');
+          setShowModal(false);
         } else {
-          alert('Gagal memperbarui: ' + json.error);
+          showToast.error('Gagal memperbarui: ' + json.error);
         }
       } else {
         const res = await fetch('/api/nkv', {
@@ -186,15 +188,17 @@ export default function NKVPage() {
             ...formData,
           };
           setDataNkv((prev) => [...prev, newRecord]);
-          alert('Data unit usaha baru berhasil ditambahkan!');
+          showToast.success('Data unit usaha baru berhasil ditambahkan!');
+          setShowModal(false);
         } else {
-          alert('Gagal menyimpan: ' + json.error);
+          showToast.error('Gagal menyimpan: ' + json.error);
         }
       }
     } catch {
-      alert('Terjadi kesalahan saat menyimpan data.');
+      showToast.error('Terjadi kesalahan saat menyimpan data.');
+    } finally {
+      setIsSubmitting(false);
     }
-    setShowModal(false);
   };
 
   // Filter Data
@@ -239,9 +243,9 @@ export default function NKVPage() {
   if (loading || !isReady) return null;
 
   return (
-    <div className="min-h-screen bg-purple-50/30 text-slate-900 font-sans selection:bg-purple-600 selection:text-white pb-20">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans selection:bg-purple-600 selection:text-white pb-20">
       {/* ── TOP HEADER (Tema Ungu) ── */}
-      <header className="border-b border-purple-100 bg-white/95 backdrop-blur-md sticky top-0 z-30 shadow-xs">
+      <header className="border-b border-purple-100 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md sticky top-0 z-30 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 min-h-[80px] sm:min-h-[88px] flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <Link
@@ -260,7 +264,7 @@ export default function NKVPage() {
                 <span className="text-slate-300">/</span>
                 <span className="text-xs font-bold text-purple-700 whitespace-nowrap">NKV</span>
               </div>
-              <h1 className="text-base sm:text-xl font-extrabold text-slate-900 tracking-tight leading-tight truncate">
+              <h1 className="text-base sm:text-xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight truncate">
                 Nomor Kontrol Veteriner (NKV)
               </h1>
             </div>
@@ -269,18 +273,19 @@ export default function NKVPage() {
           <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={handleExportExcel}
-              className="min-h-touch min-w-touch h-11 px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-bold flex items-center gap-2 transition-all shadow-xs cursor-pointer"
+              className="min-h-touch min-w-touch h-11 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-bold flex items-center gap-2 transition-all shadow-xs cursor-pointer"
             >
               <Download size={16} strokeWidth={2.5} />
               <span className="hidden sm:inline">Export Excel</span>
             </button>
-            {canCreate && (
+            {canEdit && (
               <button
                 onClick={handleOpenAdd}
                 className="min-h-touch min-w-touch h-11 px-4 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs sm:text-sm font-bold flex items-center gap-2 transition-all shadow-xs cursor-pointer"
               >
                 <Plus size={16} strokeWidth={2.5} />
-                <span>Tambah Data NKV</span>
+                <span className="hidden sm:inline">Tambah Data NKV</span>
+                <span className="sm:hidden">Tambah</span>
               </button>
             )}
           </div>
@@ -314,6 +319,7 @@ export default function NKVPage() {
         setFormData={setFormData}
         onClose={() => setShowModal(false)}
         onSubmit={handleSubmit}
+        isSubmitting={isSubmitting}
       />
     </div>
   );

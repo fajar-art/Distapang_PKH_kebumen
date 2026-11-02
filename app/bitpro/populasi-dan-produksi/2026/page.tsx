@@ -22,6 +22,7 @@ import PopulasiForm from '@/components/bitpro/populasi/PopulasiForm';
 import PopulasiTable from '@/components/bitpro/populasi/PopulasiTable';
 import BulkUploadModal from '@/components/bitpro/populasi/BulkUploadModal';
 import { UniversalAuditModal } from '@/components/common/UniversalAuditModal';
+import { showToast, showConfirm } from '@/components/common/CustomToast';
 
 function InputPopulasi2026Content() {
   const { isReady, canCreate, canEdit } = usePageAuth('bitpro', 'populasi-dan-produksi');
@@ -36,6 +37,7 @@ function InputPopulasi2026Content() {
   const [editIdx, setEditIdx] = useState<number | null>(null);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [auditTarget, setAuditTarget] = useState<any | null>(null);
@@ -182,13 +184,13 @@ function InputPopulasi2026Content() {
   const fetchDatabaseData = async () => {
     try {
       setIsLoadingData(true);
-      const res = await fetch(`/api/populasi-2026?tw=${encodeURIComponent(tw)}`);
+      const res = await fetch(`/api/populasi-2026?year=${encodeURIComponent(year)}&tw=${encodeURIComponent(tw)}`);
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
         setSavedData(json.data);
       }
     } catch (err) {
-      console.error('Gagal mengambil data populasi 2026:', err);
+      console.error('Gagal mengambil data populasi:', err);
     } finally {
       setIsLoadingData(false);
     }
@@ -196,10 +198,12 @@ function InputPopulasi2026Content() {
 
   useEffect(() => {
     fetchDatabaseData();
-  }, [tw]);
+  }, [year, tw]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSaving) return;
+
     const isEdit = editIdx !== null;
     if (isEdit && !canEdit) {
       alert('Hanya Administrator yang berhak mengedit data populasi.');
@@ -214,6 +218,7 @@ function InputPopulasi2026Content() {
       return;
     }
 
+    setIsSaving(true);
     const completeValues = { ...values };
     [...RUMINANT_BIG, ...RUMINANT_SMALL, ...MONOGASTRIC].forEach((r) => {
       const tot = calculateTotal(r.prefix);
@@ -226,6 +231,7 @@ function InputPopulasi2026Content() {
       const editingItem = editIdx !== null ? savedData[editIdx] : null;
       const payload = {
         id: editingItem ? editingItem.id : undefined,
+        tahun: Number(year) || 2026,
         tw,
         kec,
         desa,
@@ -252,6 +258,8 @@ function InputPopulasi2026Content() {
       }
     } catch {
       alert('Terjadi kesalahan saat menyimpan ke database.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -271,31 +279,40 @@ function InputPopulasi2026Content() {
 
   const handleDelete = async (idx: number) => {
     if (!canEdit) {
-      alert('Hanya Administrator yang berhak menghapus data populasi.');
+      showToast.error('Hanya Administrator yang berhak menghapus data populasi.');
       return;
     }
     const item = savedData[idx];
-    if (confirm(`Hapus entri data populasi desa ${item.desa}?`)) {
-      if (item.id) {
-        try {
-          const res = await fetch(`/api/populasi-2026?id=${item.id}`, { method: 'DELETE' });
-          const json = await res.json();
-          if (json.success) {
-            setSavedData(savedData.filter((_, i) => i !== idx));
-          } else {
-            alert('Gagal menghapus: ' + json.error);
-          }
-        } catch {
-          alert('Terjadi kesalahan koneksi.');
+    const ok = await showConfirm({
+      title: 'Hapus Data Populasi',
+      message: `Hapus entri data populasi desa ${item.desa}?`,
+      confirmText: 'Ya, Hapus',
+      cancelText: 'Batal',
+      type: 'danger',
+    });
+    if (!ok) return;
+
+    if (item.id) {
+      try {
+        const res = await fetch(`/api/populasi-2026?id=${item.id}`, { method: 'DELETE' });
+        const json = await res.json();
+        if (json.success) {
+          setSavedData(savedData.filter((_, i) => i !== idx));
+          showToast.success('Data populasi berhasil dihapus.');
+        } else {
+          showToast.error('Gagal menghapus: ' + json.error);
         }
-      } else {
-        setSavedData(savedData.filter((_, i) => i !== idx));
+      } catch {
+        showToast.error('Terjadi kesalahan koneksi.');
       }
+    } else {
+      setSavedData(savedData.filter((_, i) => i !== idx));
+      showToast.success('Data populasi berhasil dihapus.');
     }
   };
 
   const handleDownload = () => {
-    if (savedData.length === 0) return alert('Belum ada data desa untuk diexport.');
+    if (savedData.length === 0) return showToast.warning('Belum ada data desa untuk diexport.');
     const data = savedData.map((d, i) => {
       const row: Record<string, any> = {
         No: i + 1,
@@ -349,6 +366,7 @@ function InputPopulasi2026Content() {
               }
             });
             return {
+              tahun: Number(year) || 2026,
               tw: r['Triwulan'] || r['TW'] || tw,
               kec: String(r['Kecamatan'] || '').toUpperCase(),
               desa: String(r['Desa'] || '').toUpperCase(),
@@ -382,9 +400,9 @@ function InputPopulasi2026Content() {
   if (!isReady) return null;
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-emerald-600 selection:text-white pb-24">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans selection:bg-emerald-600 selection:text-white pb-24">
       {/* ── TOP HEADER ── */}
-      <header className="border-b border-emerald-100 bg-white/95 backdrop-blur-md sticky top-0 z-30 shadow-xs">
+      <header className="border-b border-emerald-100 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md sticky top-0 z-30 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 min-h-[80px] sm:min-h-[88px] flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <Link
@@ -403,7 +421,7 @@ function InputPopulasi2026Content() {
                 <span className="text-slate-300">/</span>
                 <span className="text-xs font-bold text-emerald-700 whitespace-nowrap">Populasi {year}</span>
               </div>
-              <h1 className="text-base sm:text-xl font-bold text-slate-900 tracking-tight leading-tight truncate">
+              <h1 className="text-base sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight truncate">
                 Data Populasi Ternak {year}
               </h1>
             </div>
@@ -415,9 +433,9 @@ function InputPopulasi2026Content() {
                 onClick={() => setShowBulkUpload(true)}
                 title="Import Excel"
                 aria-label="Import Excel"
-                className="min-h-touch min-w-touch h-11 w-11 sm:w-auto sm:px-4 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 text-xs sm:text-sm font-bold flex items-center justify-center sm:gap-2 transition-colors shadow-xs cursor-pointer"
+                className="min-h-touch min-w-touch h-11 w-11 sm:w-auto sm:px-4 rounded-xl border border-emerald-200 dark:border-slate-700 bg-emerald-50 dark:bg-slate-800 hover:bg-emerald-100 dark:hover:bg-slate-700 text-emerald-900 dark:text-emerald-300 text-xs sm:text-sm font-bold flex items-center justify-center sm:gap-2 transition-colors shadow-xs cursor-pointer"
               >
-                <UploadCloud size={16} className="text-emerald-700" />
+                <UploadCloud size={16} className="text-emerald-700 dark:text-emerald-400" />
                 <span className="hidden sm:inline">Import Excel</span>
               </button>
             )}
@@ -458,6 +476,7 @@ function InputPopulasi2026Content() {
             getCategoryCount={getCategoryCount}
             calculateTotal={calculateTotal}
             handleSave={handleSave}
+            isSaving={isSaving}
           />
         )}
 
@@ -484,10 +503,11 @@ function InputPopulasi2026Content() {
             setAuditTarget(null);
           }}
           recordId={auditTarget.id}
-          tableName="populasi_2026"
+          tableName="populasi_desa"
           moduleKey="bitpro"
           submenuKey="populasi-dan-produksi"
           availableFields={{
+            tahun: 'Tahun',
             tw: 'Triwulan',
             kecamatan: 'Kecamatan',
             desa: 'Desa',
@@ -511,7 +531,7 @@ export default function InputPopulasi2026() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-slate-50 flex items-center justify-center font-sans text-xs text-slate-500 uppercase tracking-widest animate-pulse">
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 dark:text-slate-400 flex items-center justify-center font-sans text-xs text-slate-500 uppercase tracking-widest animate-pulse">
           Memuat Data Populasi...
         </div>
       }

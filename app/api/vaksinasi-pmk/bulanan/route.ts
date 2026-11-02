@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { getSessionFromRequest } from '@/lib/session';
 import { logActivity } from '@/lib/auditLog';
+import { ensureVaksinasiSchema } from '@/lib/vaksinasiDb';
 
 const DEFAULT_PUSKESWAN_LIST = [
   { no: 1, nama: 'MIRIT', target: 3000, pengambilan: 1500 },
@@ -29,11 +30,23 @@ const MONTH_KEYS: Record<string, string> = {
   desember: 'des',
 };
 
+const PUSKESWAN_ID_TO_NAME: Record<number, string> = {
+  1: 'MIRIT',
+  2: 'KLIRONG',
+  3: 'GOMBONG',
+  4: 'BUAYAN',
+  5: 'ALIAN',
+  6: 'PREMBUN',
+  7: 'KEBUMEN',
+  8: 'KARANGANYAR',
+};
+
 // GET → ambil rekap bulanan di mana realisasi Jan-Des dihitung otomatis dari SUM(jumlah) tabel `vaksinasi`
 export async function GET(request: Request) {
   try {
+    await ensureVaksinasiSchema();
     const { searchParams } = new URL(request.url);
-    const tahun = searchParams.get('tahun') || '2026';
+    const tahun = searchParams.get('tahun') || String(new Date().getFullYear());
 
     // 1. Ambil target & pengambilan dari tabel `vaksinasi_bulanan` jika ada
     let bulananRows: any[] = [];
@@ -44,17 +57,17 @@ export async function GET(request: Request) {
       bulananRows = [];
     }
 
-    // 2. Ambil realisasi bulanan langsung dari tabel asli `vaksinasi`
+    // 2. Ambil realisasi bulanan langsung dari tabel asli `vaksinasi` via id_puskeswan
     let aggRows: any[] = [];
     try {
       const [vRows]: any = await pool.query(
         `SELECT 
-           UPPER(TRIM(REPLACE(puskeswan, 'Puskeswan ', ''))) as pusk_clean, 
-           LOWER(TRIM(bulan)) as bulan_clean, 
-           SUM(jumlah) as total_dosis 
-         FROM vaksinasi 
-         WHERE tahun = ? 
-         GROUP BY pusk_clean, bulan_clean`,
+           v.id_puskeswan, 
+           LOWER(TRIM(v.bulan)) as bulan_clean, 
+           SUM(v.jumlah) as total_dosis 
+         FROM vaksinasi v
+         WHERE v.tahun = ? 
+         GROUP BY v.id_puskeswan, bulan_clean`,
         [String(tahun)]
       );
       aggRows = vRows || [];
@@ -66,11 +79,11 @@ export async function GET(request: Request) {
     // Buat lookup map realisasi: { "MIRIT": { "jan": 120, "feb": 50, ... } }
     const realisasiMap: Record<string, Record<string, number>> = {};
     for (const r of aggRows) {
-      const pusk = r.pusk_clean || '';
+      const pusk = PUSKESWAN_ID_TO_NAME[r.id_puskeswan] || '';
       const bln = r.bulan_clean || '';
       const key = MONTH_KEYS[bln];
-      if (!realisasiMap[pusk]) realisasiMap[pusk] = {};
-      if (key) {
+      if (pusk && key) {
+        if (!realisasiMap[pusk]) realisasiMap[pusk] = {};
         realisasiMap[pusk][key] = (realisasiMap[pusk][key] || 0) + Number(r.total_dosis || 0);
       }
     }
@@ -123,6 +136,7 @@ export async function GET(request: Request) {
 // POST → simpan atau perbarui target & pengambilan puskeswan
 export async function POST(request: Request) {
   try {
+    await ensureVaksinasiSchema();
     const { no_urut, puskeswan, target = 0, pengambilan = 0 } = await request.json();
 
     if (!puskeswan || puskeswan.trim() === '') {
@@ -130,6 +144,18 @@ export async function POST(request: Request) {
     }
 
     const cleanPusk = puskeswan.toUpperCase().replace(/^PUSKESWAN\s+/i, '').trim();
+
+    await pool.execute(`
+      CREATE TABLE IF NOT EXISTS vaksinasi_bulanan (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        no_urut INT DEFAULT 1,
+        puskeswan VARCHAR(100) UNIQUE,
+        target INT DEFAULT 0,
+        pengambilan INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
 
     await pool.execute(
       `INSERT INTO vaksinasi_bulanan (no_urut, puskeswan, target, pengambilan)

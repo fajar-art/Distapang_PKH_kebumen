@@ -76,6 +76,17 @@ export function getPuskeswanByKecamatan(kec?: string | null): string {
   return KECAMATAN_TO_PUSKESWAN[clean] || (clean ? `Puskeswan ${clean.charAt(0) + clean.slice(1).toLowerCase()}` : '-');
 }
 
+export const DAFTAR_PUSKESWAN_BINAAN = [
+  'Puskeswan Buayan',
+  'Puskeswan Gombong',
+  'Puskeswan Karanganyar',
+  'Puskeswan Klirong',
+  'Puskeswan Alian',
+  'Puskeswan Kebumen',
+  'Puskeswan Prembun',
+  'Puskeswan Mirit',
+];
+
 export const KONDISI_KOSONG = {
   awalJantan: 0,
   awalBetina: 0,

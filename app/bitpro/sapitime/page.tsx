@@ -1,20 +1,25 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { usePageAuth } from '@/hooks/usePageAuth';
+import { getAuthSession } from '@/lib/auth';
 import {
   ArrowLeft,
   LayoutDashboard,
   Database,
   Calendar as CalendarIcon,
   History,
+  Users,
+  Stethoscope,
 } from 'lucide-react';
 import {
   Cattle,
   rezaProcessCattleData,
 } from '@/components/bitpro/sapitime/types';
+import { SapiTimePetugasTab } from '@/components/bitpro/sapitime/SapiTimePetugasTab';
+import { SapiTimePkbTab } from '@/components/bitpro/sapitime/SapiTimePkbTab';
 import { SapiTimeSummaryTab } from '@/components/bitpro/sapitime/SapiTimeSummaryTab';
 import { SapiTimeDatabaseTab } from '@/components/bitpro/sapitime/SapiTimeDatabaseTab';
 import { SapiTimeCalendarTab } from '@/components/bitpro/sapitime/SapiTimeCalendarTab';
@@ -25,13 +30,28 @@ import {
   ModalCatatIB,
   ModalTraceSapi,
   ModalEditStatusIb,
+  ModalLaporKondisiFisik,
 } from '@/components/bitpro/sapitime/SapiTimeModals';
 import { UniversalAuditModal } from '@/components/common/UniversalAuditModal';
+import NotificationBell from '@/components/common/NotificationBell';
+import { showConfirm, showToast } from '@/components/common/CustomToast';
 
 export default function SapiTimePage() {
   const router = useRouter();
-  const { isReady, canCreate, canEdit } = usePageAuth('bitpro', 'sapitime');
-  const [activeTab, setActiveTab] = useState<'home' | 'database' | 'calendar' | 'history'>('database');
+  const { isReady, canCreate, canEdit, isAdmin: isAuthAdmin, userName, userRole } = usePageAuth('bitpro', 'sapitime');
+  const isTrueAdmin = useMemo(() => {
+    const r = (userRole || '').toLowerCase();
+    return Boolean(isAuthAdmin || r === 'administrator' || r === 'superadmin');
+  }, [isAuthAdmin, userRole]);
+  const isAdmin = useMemo(() => isTrueAdmin || canEdit, [isTrueAdmin, canEdit]);
+  const isPkbOfficer = useMemo(() => {
+    const roleNorm = (userRole || '').toLowerCase();
+    return roleNorm.includes('pkb') || roleNorm === 'petugas pkb';
+  }, [userRole]);
+  const canAccessAllIbs = useMemo(() => isTrueAdmin || isPkbOfficer, [isTrueAdmin, isPkbOfficer]);
+
+  // Tab State: Untuk Admin default 'petugas_ib', Petugas PKB default 'pkb', user biasa default 'database'
+  const [activeTab, setActiveTab] = useState<'petugas_ib' | 'pkb' | 'home' | 'database' | 'calendar' | 'history'>('database');
   const [cattleList, setCattleList] = useState<Cattle[]>([]);
   const [historyList, setHistoryList] = useState<any[]>([]);
 
@@ -64,6 +84,22 @@ export default function SapiTimePage() {
 
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [auditTarget, setAuditTarget] = useState<any | null>(null);
+  const [selectedCattleForLapor, setSelectedCattleForLapor] = useState<Cattle | null>(null);
+  const [isSavingModal, setIsSavingModal] = useState(false);
+  const [isSavingIB, setIsSavingIB] = useState(false);
+
+  // Set default active tab saat role sudah siap
+  useEffect(() => {
+    if (isReady) {
+      if (isTrueAdmin) {
+        setActiveTab('petugas_ib');
+      } else if (isPkbOfficer) {
+        setActiveTab('pkb');
+      } else {
+        setActiveTab('database');
+      }
+    }
+  }, [isReady, isTrueAdmin, isPkbOfficer]);
 
   // 1. Tarik Data dari MySQL API
   const fetchData = async () => {
@@ -87,7 +123,68 @@ export default function SapiTimePage() {
     };
   }, []);
 
-  // 2. Fungsi Eksekusi API ke MySQL
+  // 2. Filter data khusus petugas non-admin / non-PKB (Data Isolation)
+  // Admin dan Petugas PKB dapat melihat SELURUH sapi dan IB (Semi Admin)
+  // Petugas biasa hanya bisa melihat data sapi yang didaftarkannya atau yang di-IB oleh dirinya sendiri
+  const displayCattleList = useMemo(() => {
+    if (canAccessAllIbs) return cattleList;
+    const localUser = getAuthSession();
+    const uName = (userName || localUser?.nama || '').toLowerCase().trim();
+    const uId = localUser?.id;
+
+    if (!uName && !uId) return cattleList;
+
+    return cattleList
+      .filter((cattle) => {
+        // 1. Sapi didaftarkan oleh petugas ini
+        const cattleCreator = (cattle.created_by || '').toLowerCase().trim();
+        const cattleUserId = cattle.id_user;
+        const isCreatedByMe = (uId && cattleUserId && Number(cattleUserId) === Number(uId)) ||
+          (uName && cattleCreator && (cattleCreator === uName || cattleCreator.includes(uName) || uName.includes(cattleCreator)));
+
+        // 2. ATAU petugas ini pernah melakukan pelayanan IB pada sapi ini
+        const hasMyInsemination = (cattle.inseminations || []).some((ib) => {
+          const insemName = (ib.inseminatorName || '').toLowerCase().trim();
+          if (uId && ib.id_user && Number(ib.id_user) === Number(uId)) return true;
+          if (uName && insemName && (insemName === uName || insemName.includes(uName) || uName.includes(insemName))) {
+            return true;
+          }
+          return false;
+        });
+
+        return isCreatedByMe || hasMyInsemination;
+      })
+      .map((cattle) => {
+        const userIbs = (cattle.inseminations || []).filter((ib) => {
+          const insemName = (ib.inseminatorName || '').toLowerCase().trim();
+          if (uId && ib.id_user && Number(ib.id_user) === Number(uId)) return true;
+          if (uName && insemName && (insemName === uName || insemName.includes(uName) || uName.includes(insemName))) {
+            return true;
+          }
+          return false;
+        });
+
+        return {
+          ...cattle,
+          inseminations: userIbs,
+        };
+      });
+  }, [cattleList, canAccessAllIbs, userName]);
+
+  const displayHistoryList = useMemo(() => {
+    if (canAccessAllIbs) return historyList;
+    const localUser = getAuthSession();
+    const uName = (userName || localUser?.nama || '').toLowerCase().trim();
+    if (!uName) return historyList;
+
+    return historyList.filter((h) => {
+      const desc = (h.description || '').toLowerCase();
+      const officer = (h.officer || h.inseminatorName || '').toLowerCase();
+      return officer.includes(uName) || desc.includes(uName) || (h.cattleId && displayCattleList.some((c) => c.id === h.cattleId));
+    });
+  }, [historyList, canAccessAllIbs, userName, displayCattleList]);
+
+  // 3. Fungsi Eksekusi API ke MySQL
   const executeApi = async (action: string, payload: any, historyObj?: any): Promise<boolean> => {
     try {
       const res = await fetch('/api/sapitime', {
@@ -113,88 +210,131 @@ export default function SapiTimePage() {
 
   // --- CRUD KE MYSQL ---
   const handleAddCattle = async () => {
+    if (isSavingModal) return;
     if (!canCreate) {
       alert('Anda tidak memiliki izin untuk menambah data sapi.');
       return;
     }
-    const existingNums = cattleList
-      .map((c) => parseInt(String(c.id).replace(/\D/g, ''), 10))
-      .filter((n) => !isNaN(n));
-    const maxNum = existingNums.length > 0 ? Math.max(0, ...existingNums) : 0;
-    const newId = `ST${String(maxNum + 1).padStart(3, '0')}`;
-    const newCattle = { ...formData, id: newId };
-    const historyObj = {
-      type: 'cattle_added',
-      cattle: formData.name,
-      cattleId: newId,
-      description: `Sapi baru ditambahkan milik ${formData.ownerName}`,
-      icon: '➕',
-    };
-
-    let initialInseminations: any[] = [];
-    if (formData.status === 'Bunting' && formData.pregnancyDate) {
-      const pkbDate = new Date(formData.pregnancyDate);
-      pkbDate.setDate(pkbDate.getDate() + 90);
-      const initialIb = {
-        id: String(Date.now()),
-        cattle_id: newId,
-        date: formData.pregnancyDate,
-        time: '08:00',
-        kecamatan: formData.kecamatan,
-        desa: formData.desa,
-        inseminatorName: 'Petugas Inseminator',
-        strawCode: 'STRAW-IB',
-        bullName: 'Pejantan Unggul',
-        bullBreed: formData.breed || 'Simmental',
-        rekomendasiPkb: pkbDate.toLocaleDateString('id-ID'),
-        notes: 'Dicatat saat pendaftaran SapiTime',
-      };
-      initialInseminations = [initialIb];
+    if (!formData.breed || !formData.breed.trim()) {
+      showToast.error('Ras Sapi wajib diisi.');
+      return;
     }
+    setIsSavingModal(true);
+    try {
+      const localUser = getAuthSession();
+      const currentUserName = userName || localUser?.nama || '';
+      const currentUserId = localUser?.id ? Number(localUser.id) : null;
+      const newId = `ST${String(cattleList.length + 1).padStart(3, '0')}`;
+      const fallbackName = (formData.name || '').trim() || (formData.registrationNumber || '').trim() || `Sapi ${newId}`;
 
-    setCattleList([...cattleList, { ...newCattle, inseminations: initialInseminations }]);
-    setShowAddModal(false);
-    setFormData({ status: 'Estrus', cycleLength: 21, kecamatan: '', desa: '', ownerName: '' });
-    const ok = await executeApi('add_cattle', newCattle, historyObj);
+      const newC: Cattle = {
+        id: newId,
+        name: fallbackName,
+        ownerName: formData.ownerName || '',
+        ownerPhone: formData.ownerPhone || '',
+        registrationNumber: formData.registrationNumber || '',
+        nik: formData.nik || '',
+        breed: formData.breed || 'PO',
+        birthDate: formData.birthDate || '',
+        status: formData.status || 'Estrus',
+        lastEstrus: formData.lastEstrus || '',
+        cycleLength: Number(formData.cycleLength) || 21,
+        inseminations: [],
+        notes: formData.notes || '',
+        pregnancyDate: formData.pregnancyDate || '',
+        kecamatan: formData.kecamatan || '',
+        desa: formData.desa || '',
+        created_by: currentUserName,
+        id_user: currentUserId,
+      };
 
-    if (ok && initialInseminations.length > 0) {
-      await executeApi('add_ib', initialInseminations[0]);
+      const historyObj = {
+        type: 'cattle_added',
+        cattle: newC.name,
+        cattleId: newC.id,
+        officer: currentUserName,
+        description: `Sapi baru ditambahkan (${newC.breed}, Pemilik: ${newC.ownerName || 'Peternak'}) oleh ${currentUserName || 'Petugas'}`,
+        icon: '🐄',
+      };
+
+      const ok = await executeApi('add_cattle', newC, historyObj);
+      if (ok) {
+        setShowAddModal(false);
+        setFormData({ status: 'Estrus', cycleLength: 21, kecamatan: '', desa: '', ownerName: '', ownerPhone: '', registrationNumber: '', nik: '' });
+      }
+    } finally {
+      setIsSavingModal(false);
     }
   };
 
   const handleEditCattle = (cattle: Cattle) => {
-    if (!canEdit) {
-      alert('Hanya Administrator yang berhak mengedit data sapi.');
-      return;
-    }
     setEditingCattle(cattle);
-    setFormData({ ...cattle });
-    setShowEditModal(false);
-    setActiveTab('database');
-    setTimeout(() => {
-      document.getElementById('form-sapi')?.scrollIntoView({ behavior: 'smooth' });
-    }, 50);
+    setFormData({
+      name: cattle.name,
+      ownerName: cattle.ownerName || '',
+      ownerPhone: cattle.ownerPhone || '',
+      registrationNumber: cattle.registrationNumber || '',
+      nik: cattle.nik || '',
+      breed: cattle.breed,
+      birthDate: cattle.birthDate || '',
+      status: cattle.status,
+      lastEstrus: cattle.lastEstrus || '',
+      cycleLength: cattle.cycleLength || 21,
+      pregnancyDate: cattle.pregnancyDate || '',
+      kecamatan: cattle.kecamatan || '',
+      desa: cattle.desa || '',
+    });
+    setShowEditModal(true);
   };
 
   const handleUpdateCattle = async () => {
-    if (!canEdit) {
-      alert('Hanya Administrator yang berhak mengedit data sapi.');
+    if (!editingCattle) return;
+    if (isSavingModal) return;
+    if (!formData.breed || !formData.breed.trim()) {
+      showToast.error('Ras Sapi wajib diisi.');
       return;
     }
-    const updatedCattle = { ...editingCattle, ...formData };
-    const historyObj = {
-      type: 'cattle_updated',
-      cattle: formData.name,
-      cattleId: editingCattle?.id,
-      description: `Data sapi diperbarui`,
-      icon: '✏️',
-    };
+    setIsSavingModal(true);
+    try {
+      const localUser = getAuthSession();
+      const currentUserName = userName || localUser?.nama || '';
+      const fallbackName = (formData.name || '').trim() || (formData.registrationNumber || '').trim() || editingCattle.id;
 
-    setCattleList(cattleList.map((c) => (c.id === editingCattle?.id ? updatedCattle : c)));
-    setShowEditModal(false);
-    setEditingCattle(null);
-    setFormData({ status: 'Estrus', cycleLength: 21, kecamatan: '', desa: '', ownerName: '' });
-    await executeApi('update_cattle', updatedCattle, historyObj);
+      const updatedCattle: Cattle = {
+        ...editingCattle,
+        name: fallbackName,
+        ownerName: formData.ownerName,
+        ownerPhone: formData.ownerPhone,
+        registrationNumber: formData.registrationNumber,
+        nik: formData.nik,
+        breed: formData.breed,
+        birthDate: formData.birthDate,
+        status: formData.status,
+        lastEstrus: formData.lastEstrus,
+        cycleLength: Number(formData.cycleLength) || 21,
+        pregnancyDate: formData.pregnancyDate,
+        kecamatan: formData.kecamatan,
+        desa: formData.desa,
+        created_by: editingCattle.created_by || currentUserName,
+      };
+
+      const historyObj = {
+        type: 'cattle_updated',
+        cattle: updatedCattle.name,
+        cattleId: updatedCattle.id,
+        officer: currentUserName,
+        description: `Data sapi diperbarui (Status: ${updatedCattle.status}) oleh ${currentUserName || 'Petugas'}`,
+        icon: '✏️',
+      };
+
+      const ok = await executeApi('update_cattle', updatedCattle, historyObj);
+      if (ok) {
+        setShowEditModal(false);
+        setEditingCattle(null);
+      }
+    } finally {
+      setIsSavingModal(false);
+    }
   };
 
   const handleDeleteCattle = async (id: string) => {
@@ -202,67 +342,91 @@ export default function SapiTimePage() {
       alert('Hanya Administrator yang berhak menghapus data sapi.');
       return;
     }
-    if (confirm('Yakin hapus sapi ini? Semua riwayat IB juga akan terhapus!')) {
-      setCattleList(cattleList.filter((c) => c.id !== id));
-      const historyObj = {
-        type: 'cattle_deleted',
-        cattle: id,
-        cattleId: id,
-        description: `Sapi dihapus dari sistem`,
-        icon: '🗑️',
-      };
-      await executeApi('delete_cattle', { id }, historyObj);
-    }
+    const ok = await showConfirm({
+      title: 'Hapus Sapi',
+      message: 'Yakin hapus sapi ini? Semua riwayat IB juga akan terhapus!',
+      confirmText: 'Ya, Hapus',
+      cancelText: 'Batal',
+      type: 'danger',
+    });
+    if (!ok) return;
+
+    setCattleList(cattleList.filter((c) => c.id !== id));
+    const historyObj = {
+      type: 'cattle_deleted',
+      cattle: id,
+      cattleId: id,
+      description: `Sapi dihapus dari sistem`,
+      icon: '🗑️',
+    };
+    await executeApi('delete_cattle', { id }, historyObj);
   };
 
   const handleAddInsemination = async () => {
-    const pkbDate = new Date(ibFormData.date);
-    pkbDate.setDate(pkbDate.getDate() + 90);
-    const rekomendasiPkb = pkbDate.toLocaleDateString('id-ID');
+    if (isSavingIB) return;
+    setIsSavingIB(true);
+    try {
+      const pkbDate = new Date(ibFormData.date);
+      pkbDate.setDate(pkbDate.getDate() + 90);
+      const rekomendasiPkb = pkbDate.toLocaleDateString('id-ID');
 
-    const newIB = { id: Date.now(), cattle_id: selectedCattleForIB?.id, ...ibFormData, rekomendasiPkb };
-    const historyObj = {
-      type: 'insemination_added',
-      cattle: selectedCattleForIB?.name,
-      cattleId: selectedCattleForIB?.id,
-      description: `Inseminasi Buatan (${newIB.kecamatan}, ${newIB.desa}). PKB: ${rekomendasiPkb}`,
-      icon: '💉',
-    };
+      const localUser = getAuthSession();
+      const effectiveInseminator = ibFormData.inseminatorName || userName || localUser?.nama || 'Petugas';
 
-    fetch('https://empty-yak-8.hooks.n8n.cloud/webhook/8b511961-05c4-4392-b818-07c89ccff71d', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        statusOperasi: 'BARU',
-        idSapi: selectedCattleForIB?.id,
-        namaSapi: selectedCattleForIB?.name,
-        tanggalIB: newIB.date,
-        waktu: newIB.time,
-        kecamatan: newIB.kecamatan,
-        desa: newIB.desa,
-        inseminator: newIB.inseminatorName,
-        kodeStraw: newIB.strawCode,
-        namaPejantan: newIB.bullName,
-        rasPejantan: newIB.bullBreed,
-        rekomendasiPkb: newIB.rekomendasiPkb,
-        catatan: newIB.notes,
-        idInseminasi: newIB.id,
-      }),
-    }).catch(console.warn);
+      const newIB = {
+        id: Date.now(),
+        cattle_id: selectedCattleForIB?.id,
+        ...ibFormData,
+        inseminatorName: effectiveInseminator,
+        id_user: localUser?.id,
+        rekomendasiPkb,
+      };
 
-    setCattleList(
-      cattleList.map((c) =>
-        c.id === selectedCattleForIB?.id
-          ? { ...c, ibDate: newIB.date, inseminations: [...(c.inseminations || []), newIB] }
-          : c
-      )
-    );
-    setShowIBModal(false);
-    setIbFormData({});
-    setSelectedCattleForIB(null);
-    const success = await executeApi('add_ib', newIB, historyObj);
-    if (success) {
-      alert('Data pelayanan IB berhasil disimpan & disinkronkan ke Database!');
+      const historyObj = {
+        type: 'insemination_added',
+        cattle: selectedCattleForIB?.name,
+        cattleId: selectedCattleForIB?.id,
+        description: `Inseminasi Buatan (${newIB.kecamatan}, ${newIB.desa}). Petugas: ${effectiveInseminator}. PKB: ${rekomendasiPkb}`,
+        icon: '💉',
+      };
+
+      fetch('https://empty-yak-8.hooks.n8n.cloud/webhook/8b511961-05c4-4392-b818-07c89ccff71d', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          statusOperasi: 'BARU',
+          idSapi: selectedCattleForIB?.id,
+          namaSapi: selectedCattleForIB?.name,
+          tanggalIB: newIB.date,
+          waktu: newIB.time,
+          kecamatan: newIB.kecamatan,
+          desa: newIB.desa,
+          inseminator: effectiveInseminator,
+          kodeStraw: newIB.strawCode,
+          namaPejantan: newIB.bullName,
+          rasPejantan: newIB.bullBreed,
+          rekomendasiPkb: newIB.rekomendasiPkb,
+          catatan: newIB.notes,
+          idInseminasi: newIB.id,
+        }),
+      }).catch(console.warn);
+
+      setCattleList(
+        cattleList.map((c) =>
+          c.id === selectedCattleForIB?.id
+            ? { ...c, ibDate: newIB.date, inseminations: [...(c.inseminations || []), newIB] }
+            : c
+        )
+      );
+      const success = await executeApi('add_ib', newIB, historyObj);
+      if (success) {
+        setShowIBModal(false);
+        setIbFormData({});
+        setSelectedCattleForIB(null);
+        alert('Data pelayanan IB berhasil disimpan & disinkronkan ke Database!');
+      }
+    } finally {
+      setIsSavingIB(false);
     }
   };
 
@@ -296,6 +460,38 @@ export default function SapiTimePage() {
     setShowEditStatusModal(true);
   };
 
+  // 4. Konfigurasi Tabs:
+  // - Admin murni: Petugas IB paling depan, lalu Pemeriksaan PKB, Database Indukan, Siklus, Kalender, Riwayat
+  // - Petugas PKB: Pemeriksaan PKB paling depan, lalu Database Indukan, Siklus, Kalender, Riwayat
+  // - Petugas biasa: Database Indukan, Siklus, Kalender, Riwayat (Petugas IB TIDAK DAPAT DIAKSES)
+  const navigationTabs = useMemo(() => {
+    if (isTrueAdmin) {
+      return [
+        { key: 'petugas_ib', label: 'Petugas IB', icon: Users },
+        { key: 'pkb', label: 'Pemeriksaan PKB', icon: Stethoscope },
+        { key: 'database', label: 'Indukan', icon: Database },
+        { key: 'home', label: 'Siklus', icon: LayoutDashboard },
+        { key: 'calendar', label: 'Kalender', icon: CalendarIcon },
+        { key: 'history', label: 'Riwayat', icon: History },
+      ];
+    }
+    if (isPkbOfficer) {
+      return [
+        { key: 'pkb', label: 'Pemeriksaan PKB', icon: Stethoscope },
+        { key: 'database', label: 'Indukan', icon: Database },
+        { key: 'home', label: 'Siklus', icon: LayoutDashboard },
+        { key: 'calendar', label: 'Kalender', icon: CalendarIcon },
+        { key: 'history', label: 'Riwayat', icon: History },
+      ];
+    }
+    return [
+      { key: 'database', label: 'Indukan', icon: Database },
+      { key: 'home', label: 'Siklus', icon: LayoutDashboard },
+      { key: 'calendar', label: 'Kalender', icon: CalendarIcon },
+      { key: 'history', label: 'Riwayat', icon: History },
+    ];
+  }, [isTrueAdmin, isPkbOfficer]);
+
   if (!isReady) return null;
 
   return (
@@ -321,69 +517,69 @@ export default function SapiTimePage() {
                   Bitpro
                 </Link>
                 <span className="text-slate-300 dark:text-slate-600">/</span>
-                <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">SapiTime Smart App</span>
+                <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
+                  SapiTime Smart App
+                </span>
               </div>
               <h1 className="text-base sm:text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight leading-tight truncate">
                 Smart Monitoring Reproduksi Ternak
               </h1>
             </div>
           </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <NotificationBell />
+          </div>
         </div>
       </header>
 
       {/* ── MAIN CONTENT ── */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-8">
-        {/* Navigation Tabs */}
-        <div className="flex gap-2 border-b border-slate-200 dark:border-slate-800 pb-px overflow-x-auto no-scrollbar scroll-smooth -mx-4 px-4 sm:mx-0 sm:px-0">
-          <button
-            onClick={() => setActiveTab('database')}
-            className={`min-h-touch h-11 px-4 sm:px-5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all shrink-0 cursor-pointer ${
-              activeTab === 'database'
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100'
-            }`}
-          >
-            <Database size={16} />
-            <span>Database Indukan</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('home')}
-            className={`min-h-touch h-11 px-4 sm:px-5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all shrink-0 cursor-pointer ${
-              activeTab === 'home'
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100'
-            }`}
-          >
-            <LayoutDashboard size={16} />
-            <span>Ringkasan Siklus</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('calendar')}
-            className={`min-h-touch h-11 px-4 sm:px-5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all shrink-0 cursor-pointer ${
-              activeTab === 'calendar'
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100'
-            }`}
-          >
-            <CalendarIcon size={16} />
-            <span>Kalender Reproduksi</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('history')}
-            className={`min-h-touch h-11 px-4 sm:px-5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all shrink-0 cursor-pointer ${
-              activeTab === 'history'
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100'
-            }`}
-          >
-            <History size={16} />
-            <span>Kinerja &amp; Riwayat</span>
-          </button>
+        {/* Navigation Tabs (Style Folder-Tab Ringkas & Rapi) */}
+        <div className="flex gap-1.5 sm:gap-2 border-b border-slate-200 dark:border-slate-800 pb-px overflow-x-auto no-scrollbar scroll-smooth -mx-4 px-4 sm:mx-0 sm:px-0">
+          {navigationTabs.map((tab) => {
+            const Icon = tab.icon;
+            const active = activeTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key as any)}
+                className={`h-9 sm:h-10 px-3 sm:px-4 rounded-t-xl text-xs sm:text-xs font-bold flex items-center gap-1.5 sm:gap-2 border-t border-x transition-all shrink-0 whitespace-nowrap cursor-pointer ${
+                  active
+                    ? 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-emerald-700 dark:text-emerald-400 border-b-white dark:border-b-slate-900 translate-y-px shadow-xs'
+                    : 'border-transparent text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white bg-slate-100/60 dark:bg-slate-800/40'
+                }`}
+              >
+                <Icon size={14} strokeWidth={2.5} />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
         </div>
 
+        {/* 1. TAB PETUGAS IB (MURNI KHUSUS ADMINISTRATOR - USER LAIN TIDAK BISA) */}
+        {activeTab === 'petugas_ib' && isTrueAdmin && (
+          <SapiTimePetugasTab
+            cattleList={cattleList}
+            onTraceCattle={handleOpenTrace}
+          />
+        )}
+
+        {/* 1.5 TAB PEMERIKSAAN PKB (ADMINISTRATOR & PETUGAS PKB) */}
+        {activeTab === 'pkb' && canAccessAllIbs && (
+          <SapiTimePkbTab
+            cattleList={cattleList}
+            onTraceCattle={handleOpenTrace}
+            onRefreshData={fetchData}
+            executeApi={executeApi}
+            canEdit={canEdit}
+          />
+        )}
+
+        {/* 2. TAB DATABASE INDUKAN (UNTUK ADMIN DI BELAKANG, UNTUK PETUGAS HANYA SAPI MILIKNYA) */}
         {activeTab === 'database' && (
           <SapiTimeDatabaseTab
-            cattleList={cattleList}
+            cattleList={displayCattleList}
             canCreate={canCreate}
             canEdit={canEdit}
             editingCattle={editingCattle}
@@ -406,30 +602,37 @@ export default function SapiTimePage() {
               setShowAuditModal(true);
             }}
             onTraceCattle={handleOpenTrace}
+            onLaporKondisi={(cattle) => setSelectedCattleForLapor(cattle)}
           />
         )}
 
+        {/* 3. TAB RINGKASAN SIKLUS */}
         {activeTab === 'home' && (
-          <SapiTimeSummaryTab cattleList={cattleList} />
+          <SapiTimeSummaryTab
+            cattleList={displayCattleList}
+            onLaporKondisi={(cattle) => setSelectedCattleForLapor(cattle)}
+          />
         )}
 
+        {/* 4. TAB KALENDER REPRODUKSI */}
         {activeTab === 'calendar' && (
           <SapiTimeCalendarTab
             currentDate={currentDate}
             setCurrentDate={setCurrentDate}
             selectedDay={selectedDay}
             setSelectedDay={setSelectedDay}
-            cattleList={cattleList}
+            cattleList={displayCattleList}
             onOpenEstrusModal={() => setShowEstrusModal(true)}
           />
         )}
 
+        {/* 5. TAB KINERJA & RIWAYAT (STICKY TABLE & SCROLLABLE) */}
         {activeTab === 'history' && (
           <SapiTimeHistoryTab
-            cattleList={cattleList}
-            historyList={historyList}
+            cattleList={displayCattleList}
+            historyList={displayHistoryList}
             onTraceCattle={handleOpenTrace}
-            onEditStatusIb={handleOpenEditStatus}
+            onEditStatusIb={canEdit ? handleOpenEditStatus : undefined}
           />
         )}
       </main>
@@ -448,12 +651,13 @@ export default function SapiTimePage() {
           setShowAddModal(false);
           setShowEditModal(false);
         }}
+        onSubmit={showEditModal ? handleUpdateCattle : handleAddCattle}
         formData={formData}
         setFormData={setFormData}
-        onSubmit={showEditModal ? handleUpdateCattle : handleAddCattle}
+        isSaving={isSavingModal}
       />
 
-      {/* ── MODAL CATAT IB ── */}
+      {/* ── MODAL INPUT PELAYANAN IB ── */}
       <ModalCatatIB
         showIBModal={showIBModal}
         setShowIBModal={setShowIBModal}
@@ -461,47 +665,51 @@ export default function SapiTimePage() {
         ibFormData={ibFormData}
         setIbFormData={setIbFormData}
         handleAddInsemination={handleAddInsemination}
+        isSaving={isSavingIB}
       />
 
-      {/* ── MODAL TRACE RIWAYAT IB SAPI ── */}
+      {/* ── MODAL TRACE SIKLUS SAPI ── */}
       <ModalTraceSapi
         isOpen={showTraceModal}
+        onClose={() => setShowTraceModal(false)}
         cattle={selectedCattleForTrace}
-        onClose={() => {
-          setShowTraceModal(false);
-          setSelectedCattleForTrace(null);
-        }}
-        onEditStatusIb={handleOpenEditStatus}
+        onEditStatusIb={canEdit ? (ib, c) => {
+          handleOpenEditStatus(ib, c);
+        } : undefined}
       />
 
       {/* ── MODAL EDIT STATUS KEBERHASILAN IB ── */}
       <ModalEditStatusIb
         isOpen={showEditStatusModal}
+        onClose={() => setShowEditStatusModal(false)}
         ib={selectedIbForStatusEdit}
         cattle={selectedCattleForStatusEdit}
-        onClose={() => {
-          setShowEditStatusModal(false);
-          setSelectedIbForStatusEdit(null);
-          setSelectedCattleForStatusEdit(null);
-        }}
         onSave={handleSaveIbStatus}
       />
 
+      {/* ── MODAL LAPOR KONDISI FISIK SAPI ── */}
+      {selectedCattleForLapor && (
+        <ModalLaporKondisiFisik
+          isOpen={!!selectedCattleForLapor}
+          onClose={() => setSelectedCattleForLapor(null)}
+          cattle={selectedCattleForLapor}
+          onSuccess={() => fetchData()}
+        />
+      )}
+
+      {/* ── UNIVERSAL AUDIT MODAL ── */}
       <UniversalAuditModal
         isOpen={showAuditModal}
-        onClose={() => setShowAuditModal(false)}
-        recordId={auditTarget?.id}
+        onClose={() => {
+          setShowAuditModal(false);
+          setAuditTarget(null);
+        }}
+        recordId={auditTarget?.id ? String(auditTarget.id) : null}
+        recordTitle={auditTarget?.name ? `Sapi: ${auditTarget.name} (${auditTarget.id})` : 'Data Sapi'}
         tableName="sapitime"
         moduleKey="bitpro"
         submenuKey="sapitime"
-        availableFields={[
-          { key: 'name', label: 'Nama Sapi' },
-          { key: 'ownerName', label: 'Nama Peternak' },
-          { key: 'breed', label: 'Ras' },
-          { key: 'kecamatan', label: 'Kecamatan' },
-          { key: 'desa', label: 'Desa' },
-          { key: 'status', label: 'Status' }
-        ]}
+        availableFields={['name', 'ownerName', 'breed', 'status', 'lastEstrus', 'kecamatan', 'desa']}
       />
     </div>
   );

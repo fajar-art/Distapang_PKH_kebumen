@@ -108,7 +108,7 @@ export default function AddProduksiModal({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                Kategori Produksi <span className="text-red-500">*</span>
+                Kategori Produksi
               </label>
               <select
                 value={formKategori}
@@ -123,7 +123,7 @@ export default function AddProduksiModal({
             <div className="relative">
               <div className="flex items-center justify-between mb-1">
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                  Nama Komoditas / Ternak <span className="text-red-500">*</span>
+                  Nama Komoditas / Ternak
                 </label>
                 <span className="text-[10px] text-emerald-700 font-semibold">
                   Live Search Database IB

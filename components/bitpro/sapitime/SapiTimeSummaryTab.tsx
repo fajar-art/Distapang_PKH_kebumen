@@ -1,14 +1,15 @@
 'use client';
 
 import React from 'react';
-import { User } from 'lucide-react';
+import { User, Activity } from 'lucide-react';
 import { Cattle, getCattleStatusData } from './types';
 
 interface SapiTimeSummaryTabProps {
   cattleList: Cattle[];
+  onLaporKondisi?: (cattle: Cattle) => void;
 }
 
-export function SapiTimeSummaryTab({ cattleList }: SapiTimeSummaryTabProps) {
+export function SapiTimeSummaryTab({ cattleList, onLaporKondisi }: SapiTimeSummaryTabProps) {
   const sortedCattle = [...cattleList].map(getCattleStatusData).sort((a: any, b: any) => {
     const aDays = a.daysUntil ?? 999;
     const bDays = b.daysUntil ?? 999;
@@ -35,16 +36,17 @@ export function SapiTimeSummaryTab({ cattleList }: SapiTimeSummaryTabProps) {
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 text-xs uppercase tracking-wider font-bold">
+            <thead className="bg-slate-100 dark:bg-slate-800 border-b border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-xs uppercase tracking-wider font-bold">
               <tr>
-                <th className="px-6 py-4 w-16">No</th>
-                <th className="px-6 py-4">Data Peternak &amp; Sapi</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4">Sisa Waktu</th>
-                <th className="px-6 py-4 w-[25%]">Progress Siklus</th>
+                <th className="px-6 py-4 w-16 border-r border-slate-300 dark:border-slate-700">No</th>
+                <th className="px-6 py-4 border-r border-slate-300 dark:border-slate-700">Data Peternak &amp; Sapi</th>
+                <th className="px-6 py-4 border-r border-slate-300 dark:border-slate-700">Status</th>
+                <th className="px-6 py-4 border-r border-slate-300 dark:border-slate-700">Sisa Waktu</th>
+                <th className="px-6 py-4 w-[25%] border-r border-slate-300 dark:border-slate-700">Progress Siklus</th>
+                <th className="px-6 py-4 text-center">Aksi Lapor</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-300 dark:divide-slate-700">
               {sortedCattle.length > 0 ? (
                 sortedCattle.map((cattleData: any, idx: number) => {
                   let progressVal = 0;
@@ -60,20 +62,20 @@ export function SapiTimeSummaryTab({ cattleList }: SapiTimeSummaryTabProps) {
                   }
 
                   return (
-                    <tr key={cattleData.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors">
-                      <td className="px-6 py-4 font-bold text-emerald-700 text-xs">{idx + 1}</td>
-                      <td className="px-6 py-4">
+                    <tr key={cattleData.id} className="odd:bg-white even:bg-slate-100 dark:odd:bg-slate-900/60 dark:even:bg-slate-800/50 hover:bg-blue-50/60 dark:hover:bg-slate-800/80 transition-colors">
+                      <td className="px-6 py-4 font-bold text-emerald-700 dark:text-emerald-400 text-xs border-r border-slate-300 dark:border-slate-700">{idx + 1}</td>
+                      <td className="px-6 py-4 border-r border-slate-300 dark:border-slate-700">
                         <div className="flex flex-col">
-                          <span className="font-bold text-sm text-slate-900 flex items-center gap-1.5">
+                          <span className="font-bold text-sm text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                             <User size={15} className="text-slate-400" />
                             {cattleData.ownerName || 'Peternak Tidak Diketahui'}
                           </span>
-                          <span className="font-medium text-slate-500 text-xs mt-0.5 ml-5">
-                            Sapi: <strong className="text-emerald-700">{cattleData.name}</strong> • ID: {cattleData.id}
+                          <span className="font-medium text-slate-500 dark:text-slate-400 text-xs mt-0.5 ml-5">
+                            Sapi: <strong className="text-emerald-700 dark:text-emerald-400">{cattleData.name}</strong> • ID: {cattleData.id}
                           </span>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 border-r border-slate-300 dark:border-slate-700">
                         <span
                           className={`px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider ${
                             cattleData.status === 'Bunting'
@@ -84,7 +86,7 @@ export function SapiTimeSummaryTab({ cattleList }: SapiTimeSummaryTabProps) {
                           {cattleData.status}
                         </span>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 border-r border-slate-300 dark:border-slate-700">
                         <div
                           className="inline-flex items-center gap-2 px-3 py-1 rounded-lg font-bold text-xs"
                           style={{ backgroundColor: cattleData.bgHex, color: cattleData.colorHex }}
@@ -94,20 +96,33 @@ export function SapiTimeSummaryTab({ cattleList }: SapiTimeSummaryTabProps) {
                             : 'Aman'}
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                      <td className="px-6 py-4 border-r border-slate-300 dark:border-slate-700">
+                        <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2.5 overflow-hidden">
                           <div
                             className="h-full rounded-full transition-all duration-500 ease-out"
                             style={{ width: `${progressVal}%`, backgroundColor: cattleData.colorHex }}
                           ></div>
                         </div>
                       </td>
+                      <td className="px-6 py-4 text-center">
+                        {onLaporKondisi && (
+                          <button
+                            type="button"
+                            onClick={() => onLaporKondisi(cattleData)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold transition-all cursor-pointer shadow-2xs"
+                            title="Cek & Lapor Kondisi Fisik Sapi"
+                          >
+                            <Activity size={13} className="text-emerald-600" />
+                            <span>Cek Fisik</span>
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   );
                 })
               ) : (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-400 font-medium">
+                  <td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-medium">
                     Belum ada data sapi di Database.
                   </td>
                 </tr>

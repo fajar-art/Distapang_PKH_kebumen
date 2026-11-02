@@ -304,7 +304,7 @@ export function MonevSuratPernyataanTab({
   return (
     <div className="space-y-8 animate-in fade-in duration-200">
       {/* ── 1. PILIH KTT SUMBER (DATA MENGIKUT DARI PENDATAAN LAPANGAN) ── */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+      <div className="bg-white p-5 rounded-2xl border border-slate-300 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
             <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
@@ -342,7 +342,7 @@ export function MonevSuratPernyataanTab({
       </div>
 
       {/* ── 2. FORMULIR SURAT PERNYATAAN (SEPERTI LEMBAR SURAT RESMI) ── */}
-      <div className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-xs space-y-6">
+      <div className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-300 shadow-xs space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-200">
           <div>
             <h3 className="font-bold text-base sm:text-lg text-slate-900 flex items-center gap-2">
@@ -391,7 +391,7 @@ export function MonevSuratPernyataanTab({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-sans font-bold uppercase tracking-wider text-slate-600 mb-1">
-                  Nama Lengkap <span className="text-red-500">*</span>
+                  Nama Lengkap
                 </label>
                 <input
                   type="text"
@@ -405,7 +405,7 @@ export function MonevSuratPernyataanTab({
 
               <div>
                 <label className="block text-xs font-sans font-bold uppercase tracking-wider text-slate-600 mb-1">
-                  Jabatan dalam Kelompok
+                  Jabatan dalam Kelompok <span className="text-[11px] text-slate-400 font-normal">(opsional)</span>
                 </label>
                 <input
                   type="text"
@@ -417,7 +417,7 @@ export function MonevSuratPernyataanTab({
 
               <div>
                 <label className="block text-xs font-sans font-bold uppercase tracking-wider text-slate-600 mb-1">
-                  Nama Kelompok (KTT) <span className="text-red-500">*</span>
+                  Nama Kelompok (KTT)
                 </label>
                 <input
                   type="text"
@@ -431,7 +431,7 @@ export function MonevSuratPernyataanTab({
 
               <div>
                 <label className="block text-xs font-sans font-bold uppercase tracking-wider text-slate-600 mb-1">
-                  Nomor Telp / WhatsApp
+                  Nomor Telp / WhatsApp <span className="text-[11px] text-slate-400 font-normal">(opsional)</span>
                 </label>
                 <input
                   type="text"
@@ -445,7 +445,7 @@ export function MonevSuratPernyataanTab({
 
             <div>
               <label className="block text-xs font-sans font-bold uppercase tracking-wider text-slate-600 mb-1">
-                Alamat Domisili Kelompok
+                Alamat Domisili Kelompok <span className="text-[11px] text-slate-400 font-normal">(opsional)</span>
               </label>
               <input
                 type="text"

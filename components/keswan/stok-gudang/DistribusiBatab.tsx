@@ -23,7 +23,9 @@ interface DistribusiBatabProps {
   onOpenPrintBa: (item: DistribusiBaItem) => void;
   onOpenUploadBa: (item: DistribusiBaItem) => void;
   onDeleteDistribusi: (id: number) => void;
+  canCreate?: boolean;
   canEdit: boolean;
+  onOpenAudit?: (recordId: any, tableName: string, fields: any[]) => void;
 }
 
 export default function DistribusiBatab({
@@ -32,7 +34,9 @@ export default function DistribusiBatab({
   onOpenPrintBa,
   onOpenUploadBa,
   onDeleteDistribusi,
+  canCreate,
   canEdit,
+  onOpenAudit,
 }: DistribusiBatabProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterPusk, setFilterPusk] = useState('ALL');
@@ -59,85 +63,89 @@ export default function DistribusiBatab({
   return (
     <div className="space-y-6">
       {/* ── 1. TOOLBAR PENCARIAN & TOMBOL AKSI ── */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
-        <div className="relative flex-1">
+      <div className="flex flex-col gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
+        <div className="relative w-full">
           <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
             placeholder="Cari nomor BA, nama obat, atau puskeswan..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none text-slate-800 dark:text-slate-100"
+            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none text-slate-800 dark:text-slate-100"
           />
         </div>
 
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
-          <select
-            value={filterPusk}
-            onChange={(e) => setFilterPusk(e.target.value)}
-            className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
-          >
-            <option value="ALL">Semua 8 Puskeswan</option>
-            <option value="MIRIT">Puskeswan Mirit</option>
-            <option value="KLIRONG">Puskeswan Klirong</option>
-            <option value="GOMBONG">Puskeswan Gombong</option>
-            <option value="BUAYAN">Puskeswan Buayan</option>
-            <option value="ALIAN">Puskeswan Alian</option>
-            <option value="PREMBUN">Puskeswan Prembun</option>
-            <option value="KEBUMEN">Puskeswan Kebumen</option>
-            <option value="KARANGANYAR">Puskeswan Karanganyar</option>
-          </select>
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
+          {/* Dropdown filter di bawah pencarian */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 flex-1">
+            <select
+              value={filterPusk}
+              onChange={(e) => setFilterPusk(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
+            >
+              <option value="ALL">Semua 8 Puskeswan</option>
+              <option value="MIRIT">Puskeswan Mirit</option>
+              <option value="KLIRONG">Puskeswan Klirong</option>
+              <option value="GOMBONG">Puskeswan Gombong</option>
+              <option value="BUAYAN">Puskeswan Buayan</option>
+              <option value="ALIAN">Puskeswan Alian</option>
+              <option value="PREMBUN">Puskeswan Prembun</option>
+              <option value="KEBUMEN">Puskeswan Kebumen</option>
+              <option value="KARANGANYAR">Puskeswan Karanganyar</option>
+            </select>
 
-          <select
-            value={filterJenis}
-            onChange={(e) => setFilterJenis(e.target.value)}
-            className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
-          >
-            <option value="ALL">Semua Jenis Distribusi</option>
-            <option value="DROPING_TERENCANA">Dropping Terencana</option>
-            <option value="AMPRAHAN_INSIDENTAL">Amprahan Insidental</option>
-            <option value="DARURAT">Khusus Status Darurat</option>
-          </select>
+            <select
+              value={filterJenis}
+              onChange={(e) => setFilterJenis(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
+            >
+              <option value="ALL">Semua Jenis Distribusi</option>
+              <option value="DROPING_TERENCANA">Dropping Terencana</option>
+              <option value="AMPRAHAN_INSIDENTAL">Amprahan Insidental</option>
+              <option value="DARURAT">Khusus Status Darurat</option>
+            </select>
+          </div>
 
-          {canEdit && (
-            <>
+          {/* Tombol Aksi */}
+          {(canCreate || canEdit) && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex items-center gap-2 w-full lg:w-auto shrink-0">
               <button
                 onClick={() => onOpenCreateDistribusi(false)}
-                className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer shrink-0"
+                className="w-full sm:w-auto flex items-center justify-center gap-1.5 min-h-touch h-10 px-4 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer whitespace-nowrap"
               >
-                <Plus className="w-4 h-4" />
-                Dropping Terencana
+                <Plus className="w-4 h-4 shrink-0" />
+                <span>Dropping Terencana</span>
               </button>
               <button
                 onClick={() => onOpenCreateDistribusi(true)}
-                className="flex items-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer shrink-0"
+                className="w-full sm:w-auto flex items-center justify-center gap-1.5 min-h-touch h-10 px-4 py-2 bg-amber-600 hover:bg-amber-700 active:scale-95 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer whitespace-nowrap"
               >
-                <AlertTriangle className="w-4 h-4" />
-                Ambil Darurat
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>Ambil Darurat</span>
               </button>
-            </>
+            </div>
           )}
         </div>
       </div>
 
       {/* ── 2. TABEL DATA DISTRIBUSI & BERITA ACARA ── */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 font-semibold border-b border-slate-100 dark:border-slate-800">
-                <th className="p-3.5 text-center w-12">No</th>
-                <th className="p-3.5">Nomor BA &amp; Tanggal</th>
-                <th className="p-3.5">Tujuan Puskeswan</th>
-                <th className="p-3.5">Nama Obat / Barang</th>
-                <th className="p-3.5">No. Batch &amp; Exp</th>
-                <th className="p-3.5 text-center">Jumlah</th>
-                <th className="p-3.5 text-center">Jenis Distribusi</th>
-                <th className="p-3.5 text-center">Bukti Tanda Terima</th>
+              <tr className="bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 font-extrabold uppercase tracking-wider text-[10px] border-b border-slate-200 dark:border-slate-800">
+                <th className="p-3.5 text-center w-12 border-r border-slate-200 dark:border-slate-800">No</th>
+                <th className="p-3.5 border-r border-slate-200 dark:border-slate-800">Nomor BA &amp; Tanggal</th>
+                <th className="p-3.5 border-r border-slate-200 dark:border-slate-800">Tujuan Puskeswan</th>
+                <th className="p-3.5 border-r border-slate-200 dark:border-slate-800">Nama Obat / Barang</th>
+                <th className="p-3.5 border-r border-slate-200 dark:border-slate-800">No. Batch &amp; Exp</th>
+                <th className="p-3.5 text-center border-r border-slate-200 dark:border-slate-800">Jumlah</th>
+                <th className="p-3.5 text-center border-r border-slate-200 dark:border-slate-800">Jenis Distribusi</th>
+                <th className="p-3.5 text-center border-r border-slate-200 dark:border-slate-800">Bukti Tanda Terima</th>
                 <th className="p-3.5 text-center w-36">Aksi &amp; Berita Acara</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 text-slate-700 dark:text-slate-200">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-200">
               {filteredList.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="p-8 text-center text-slate-400">
@@ -148,10 +156,10 @@ export default function DistribusiBatab({
                 filteredList.map((item, idx) => (
                   <tr
                     key={item.id_distribusi}
-                    className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
+                    className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
                   >
-                    <td className="p-3.5 text-center font-mono text-slate-400">{idx + 1}</td>
-                    <td className="p-3.5 whitespace-nowrap">
+                    <td className="p-3.5 text-center font-mono text-slate-500 dark:text-slate-400 border-r border-slate-200 dark:border-slate-800">{idx + 1}</td>
+                    <td className="p-3.5 whitespace-nowrap border-r border-slate-200 dark:border-slate-800">
                       <div className="font-mono font-bold text-blue-600 dark:text-blue-400">
                         {item.nomor_ba}
                       </div>
@@ -159,13 +167,13 @@ export default function DistribusiBatab({
                         {item.tanggal_ba ? String(item.tanggal_ba).slice(0, 10) : '-'}
                       </div>
                     </td>
-                    <td className="p-3.5 whitespace-nowrap">
+                    <td className="p-3.5 whitespace-nowrap border-r border-slate-200 dark:border-slate-800">
                       <div className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
                         <Building2 className="w-3.5 h-3.5 text-slate-400" />
                         Puskeswan {item.nama_puskeswan}
                       </div>
                     </td>
-                    <td className="p-3.5">
+                    <td className="p-3.5 border-r border-slate-200 dark:border-slate-800">
                       <div className="font-semibold text-slate-900 dark:text-slate-100">
                         {item.nama_barang}
                       </div>
@@ -173,7 +181,7 @@ export default function DistribusiBatab({
                         {item.sumber_anggaran} • {item.tahun_anggaran || '2026'}
                       </div>
                     </td>
-                    <td className="p-3.5 whitespace-nowrap">
+                    <td className="p-3.5 whitespace-nowrap border-r border-slate-200 dark:border-slate-800">
                       <div className="font-mono font-bold text-slate-700 dark:text-slate-300">
                         {item.nomor_batch || '-'}
                       </div>
@@ -181,25 +189,25 @@ export default function DistribusiBatab({
                         Exp: {item.tanggal_kadaluarsa ? String(item.tanggal_kadaluarsa).slice(0, 10) : '-'}
                       </div>
                     </td>
-                    <td className="p-3.5 text-center font-black text-blue-600 dark:text-blue-400 text-sm whitespace-nowrap">
+                    <td className="p-3.5 text-center font-black text-blue-600 dark:text-blue-400 text-sm whitespace-nowrap border-r border-slate-200 dark:border-slate-800">
                       {item.jumlah.toLocaleString('id-ID')} {item.satuan_kemasan || 'unit'}
                     </td>
-                    <td className="p-3.5 text-center whitespace-nowrap">
+                    <td className="p-3.5 text-center whitespace-nowrap border-r border-slate-200 dark:border-slate-800">
                       {item.is_darurat ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
                           <AlertTriangle className="w-3 h-3" /> AMPRAHAN DARURAT
                         </span>
                       ) : item.jenis_distribusi === 'AMPRAHAN_INSIDENTAL' ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
                           AMPRAHAN INSIDENTAL
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
                           DROPPING TERENCANA
                         </span>
                       )}
                     </td>
-                    <td className="p-3.5 text-center whitespace-nowrap">
+                    <td className="p-3.5 text-center whitespace-nowrap border-r border-slate-200 dark:border-slate-800">
                       {item.file_bukti_ba ? (
                         <button
                           onClick={() => setPreviewBuktiUrl(item.file_bukti_ba || null)}
@@ -225,6 +233,28 @@ export default function DistribusiBatab({
                         >
                           <Printer className="w-3.5 h-3.5" /> Kop BA
                         </button>
+
+                        {onOpenAudit && (
+                          <button
+                            onClick={() =>
+                              onOpenAudit(item.id_distribusi, 'distribusi_obat', [
+                                { key: 'nomor_ba', label: 'Nomor Berita Acara' },
+                                { key: 'tanggal_ba', label: 'Tanggal BA', type: 'date' },
+                                { key: 'nama_puskeswan', label: 'Puskeswan Tujuan' },
+                                { key: 'nama_barang', label: 'Nama Barang' },
+                                { key: 'nomor_batch', label: 'Nomor Batch' },
+                                { key: 'jumlah', label: 'Jumlah Alokasi', type: 'number' },
+                                { key: 'jenis_distribusi', label: 'Jenis Distribusi' },
+                                { key: 'yang_menyerahkan', label: 'Yang Menyerahkan' },
+                                { key: 'yang_menerima', label: 'Yang Menerima' },
+                              ])
+                            }
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-lg transition-colors cursor-pointer"
+                            title="Riwayat & Ajukan Koreksi ke Admin"
+                          >
+                            <Clock className="w-3.5 h-3.5" />
+                          </button>
+                        )}
 
                         {canEdit && (
                           <button

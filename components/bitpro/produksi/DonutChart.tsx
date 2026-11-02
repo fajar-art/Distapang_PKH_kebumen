@@ -75,17 +75,17 @@ export default function DonutChart({
   const topPercentage = topContributor && total > 0 ? (topContributor.value / total) * 100 : 0;
 
   return (
-    <div className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-7 shadow-sm space-y-5 flex flex-col justify-between hover:shadow-md transition-shadow">
+    <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-5 sm:p-7 shadow-sm space-y-5 flex flex-col justify-between hover:shadow-md transition-shadow">
       {/* Chart Header */}
-      <div className="flex items-center justify-between pb-3 border-b border-slate-100 gap-2">
+      <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 gap-2">
         <div className="flex items-center gap-3 min-w-0">
           <span className="text-2xl shrink-0">{icon}</span>
           <div className="min-w-0">
-            <h3 className="font-extrabold text-base text-slate-900 truncate">{title}</h3>
-            <p className="text-xs text-slate-500 truncate">{subtitle}</p>
+            <h3 className="font-extrabold text-base text-slate-900 dark:text-white truncate">{title}</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{subtitle}</p>
           </div>
         </div>
-        <span className="px-3 py-1 rounded-xl bg-slate-100 text-slate-800 text-xs font-extrabold font-sans shrink-0 border border-slate-200">
+        <span className="px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-extrabold font-sans shrink-0 border border-slate-200 dark:border-slate-700">
           {total > 1000 ? `${(total / 1000).toLocaleString('id-ID', { maximumFractionDigits: 1 })} Ton` : `${total.toLocaleString('id-ID')} ${unit}`}
         </span>
       </div>
@@ -107,7 +107,7 @@ export default function DonutChart({
                 cy="100"
                 r="70"
                 fill="none"
-                stroke="#F1F5F9"
+                className="stroke-slate-100 dark:stroke-slate-800"
                 strokeWidth="24"
               />
 
@@ -142,7 +142,7 @@ export default function DonutChart({
                       <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block truncate max-w-[110px]">
                         {activeSlice.label}
                       </span>
-                      <span className="text-xl font-black text-slate-900 leading-tight">
+                      <span className="text-xl font-black text-slate-900 dark:text-white leading-tight">
                         {activeSlice.percentage.toFixed(1)}%
                       </span>
                       <span className="text-[11px] font-bold block mt-0.5" style={{ color: activeSlice.color }}>
@@ -154,10 +154,10 @@ export default function DonutChart({
               ) : (
                 <div className="animate-in fade-in duration-150">
                   <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 block">Total</span>
-                  <span className="text-lg sm:text-xl font-black text-slate-900 leading-tight">
+                  <span className="text-lg sm:text-xl font-black text-slate-900 dark:text-white leading-tight">
                     {total > 1000 ? `${(total / 1000).toLocaleString('id-ID', { maximumFractionDigits: 1 })} Ton` : `${total.toLocaleString('id-ID')}`}
                   </span>
-                  <span className="text-[10px] font-bold text-slate-500 block">
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block">
                     {slices.length} Komoditas
                   </span>
                 </div>
@@ -179,8 +179,8 @@ export default function DonutChart({
                   onMouseLeave={() => setHoveredIdx(null)}
                   className={`p-2 rounded-2xl border transition-all cursor-pointer ${
                     isHovered
-                      ? 'bg-slate-50 border-slate-300 shadow-xs'
-                      : 'bg-white border-slate-100 hover:border-slate-200'
+                      ? 'bg-slate-50 dark:bg-slate-800 border-slate-300 dark:border-slate-600 shadow-xs'
+                      : 'bg-white dark:bg-slate-900/60 border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1 gap-2">
@@ -189,10 +189,10 @@ export default function DonutChart({
                         className="w-2.5 h-2.5 rounded-full shrink-0"
                         style={{ backgroundColor: item.color }}
                       />
-                      <span className="font-bold text-slate-800 truncate">{item.label}</span>
+                      <span className="font-bold text-slate-800 dark:text-slate-200 truncate">{item.label}</span>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="font-black text-slate-900 font-mono">{percentage.toFixed(1)}%</span>
+                      <span className="font-black text-slate-900 dark:text-white font-mono">{percentage.toFixed(1)}%</span>
                       <span className="text-[10px] text-slate-400 font-medium">
                         ({item.value.toLocaleString('id-ID')} {unit})
                       </span>
@@ -200,7 +200,7 @@ export default function DonutChart({
                   </div>
 
                   {/* Horizontal Mini Progress Bar */}
-                  <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all duration-300"
                       style={{
@@ -219,13 +219,13 @@ export default function DonutChart({
 
       {/* Footer Pill: Kontributor Terbesar */}
       {topContributor && total > 0 && (
-        <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs bg-slate-50/80 px-3.5 py-2.5 rounded-2xl">
-          <div className="flex items-center gap-2 text-slate-600">
+        <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs bg-slate-50/80 dark:bg-slate-800/60 px-3.5 py-2.5 rounded-2xl">
+          <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
             <span className="text-sm">🏆</span>
             <span className="font-semibold">Kontribusi Terbesar:</span>
-            <strong className="text-slate-900">{topContributor.label}</strong>
+            <strong className="text-slate-900 dark:text-white">{topContributor.label}</strong>
           </div>
-          <span className="font-black text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-lg text-[11px]">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-black text-emerald-700 dark:text-emerald-300 bg-emerald-100/80 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800">
             {topPercentage.toFixed(1)}% ({topContributor.value.toLocaleString('id-ID')} {unit})
           </span>
         </div>

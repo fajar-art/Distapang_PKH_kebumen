@@ -18,9 +18,12 @@ import {
   ShieldCheck,
   CheckCircle2,
   Truck,
+  Newspaper,
+  Megaphone,
 } from 'lucide-react';
 import { ModuleNavGroup, SubmenuItem, MODULE_NAV_DATA } from './types';
 import { checkModuleAccess, checkSubmenuAccess } from '@/lib/auth';
+import BroadcastAnnouncementModal from '@/components/admin/broadcast/BroadcastAnnouncementModal';
 
 interface SidebarNavProps {
   isDark: boolean;
@@ -59,6 +62,7 @@ export default function SidebarNav({
   pendingCount: propPendingCount,
 }: SidebarNavProps) {
   const [flyoutModule, setFlyoutModule] = useState<string | null>(null);
+  const [showBroadcastModal, setShowBroadcastModal] = useState(false);
   const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>({
     bitpro: true,
     keswan: true,
@@ -641,6 +645,78 @@ export default function SidebarNav({
                 </div>
               );
             })}
+
+          {/* ── MENU ADMIN (Khusus Administrator) ── */}
+          {isAdmin && (
+            <div className="pt-3 pb-1 border-t border-slate-200 dark:border-slate-800 space-y-1">
+              {!isCollapsed ? (
+                <div className="px-3 py-1 flex items-center justify-between text-[11px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                  <span>Menu Admin</span>
+                  <ShieldCheck size={13} className="text-blue-500" />
+                </div>
+              ) : (
+                <div className="w-full h-px bg-slate-200 dark:bg-slate-800 my-1.5" />
+              )}
+
+              {/* 1. Update Berita Portal */}
+              <Link
+                href="/admin/berita"
+                className={`w-full px-3 py-2 rounded-xl flex items-center gap-2.5 text-xs font-bold transition-colors cursor-pointer ${
+                  isDark
+                    ? 'text-slate-200 hover:bg-slate-800/80 hover:text-white'
+                    : 'text-slate-700 hover:bg-slate-100 hover:text-blue-600'
+                } ${isCollapsed ? 'justify-center px-1' : ''}`}
+                title="Kelola & Update Berita Portal Publik"
+              >
+                <Newspaper size={16} className="text-blue-500 shrink-0" />
+                {!isCollapsed && <span className="truncate">Update Berita</span>}
+              </Link>
+
+              {/* 2. Pengumuman Dinas */}
+              <button
+                type="button"
+                onClick={() => setShowBroadcastModal(true)}
+                className={`w-full px-3 py-2 rounded-xl flex items-center gap-2.5 text-xs font-bold transition-colors cursor-pointer text-left ${
+                  isDark
+                    ? 'text-slate-200 hover:bg-slate-800/80 hover:text-white'
+                    : 'text-slate-700 hover:bg-slate-100 hover:text-amber-600'
+                } ${isCollapsed ? 'justify-center px-1' : ''}`}
+                title="Siarkan Pengumuman / Broadcast Dinas"
+              >
+                <Megaphone size={16} className="text-amber-500 shrink-0" />
+                {!isCollapsed && <span className="truncate">Pengumuman</span>}
+              </button>
+
+              {/* 3. Manajemen Anggota */}
+              <Link
+                href="/admin/anggota"
+                className={`w-full px-3 py-2 rounded-xl flex items-center gap-2.5 text-xs font-bold transition-colors cursor-pointer ${
+                  isDark
+                    ? 'text-slate-200 hover:bg-slate-800/80 hover:text-white'
+                    : 'text-slate-700 hover:bg-slate-100 hover:text-emerald-600'
+                } ${isCollapsed ? 'justify-center px-1' : ''}`}
+                title="Kelola Akun Anggota & Hak Akses"
+              >
+                <Users size={16} className="text-emerald-500 shrink-0" />
+                {!isCollapsed && <span className="truncate">Anggota</span>}
+              </Link>
+
+              {/* 4. Cadangkan & Pulihkan Database */}
+              <button
+                type="button"
+                onClick={onOpenBackupModal}
+                className={`w-full px-3 py-2 rounded-xl flex items-center gap-2.5 text-xs font-bold transition-colors cursor-pointer text-left ${
+                  isDark
+                    ? 'text-slate-200 hover:bg-slate-800/80 hover:text-white'
+                    : 'text-slate-700 hover:bg-slate-100 hover:text-blue-600'
+                } ${isCollapsed ? 'justify-center px-1' : ''}`}
+                title="Cadangkan & Pulihkan Database MySQL"
+              >
+                <Database size={16} className="text-blue-500 shrink-0" />
+                {!isCollapsed && <span className="truncate">Backup Database</span>}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Sidebar Footer Controls */}
@@ -650,34 +726,6 @@ export default function SidebarNav({
               isDark ? 'border-slate-800 bg-slate-900' : 'border-slate-300 bg-slate-100'
             }`}
           >
-            {isAdmin && (
-              <>
-                <Link
-                  href="/admin/anggota"
-                  className={`w-10 h-10 rounded-xl border-2 flex items-center justify-center transition-colors cursor-pointer ${
-                    isDark
-                      ? 'bg-slate-800 border-slate-700 text-emerald-400 hover:bg-slate-700'
-                      : 'bg-white border-slate-300 text-emerald-600 hover:bg-slate-50 shadow-2xs'
-                  }`}
-                  title="Kelola Anggota & Wilayah Kerja"
-                >
-                  <Users size={16} />
-                </Link>
-
-                <button
-                  onClick={onOpenBackupModal}
-                  className={`w-10 h-10 rounded-xl border-2 flex items-center justify-center transition-colors cursor-pointer ${
-                    isDark
-                      ? 'bg-slate-800 border-slate-700 text-blue-400 hover:bg-slate-700'
-                      : 'bg-white border-slate-300 text-blue-600 hover:bg-slate-50 shadow-2xs'
-                  }`}
-                  title="Cadangkan Database MySQL"
-                >
-                  <Database size={16} />
-                </button>
-              </>
-            )}
-
             <Link
               href="/"
               className="w-10 h-10 rounded-xl border-2 border-emerald-700 bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center transition-colors shadow-xs shrink-0"
@@ -716,39 +764,6 @@ export default function SidebarNav({
               isDark ? 'border-slate-800 bg-slate-900' : 'border-slate-300 bg-slate-100'
             }`}
           >
-            {/* Admin Extras (Tampil di Desktop & Mobile Drawer) */}
-            {isAdmin && (
-              <div className="pb-0.5">
-                <div className="grid grid-cols-2 gap-1.5">
-                  <Link
-                    href="/admin/anggota"
-                    className={`w-full py-2 px-2 rounded-xl border-2 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
-                      isDark
-                        ? 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700'
-                        : 'bg-white border-slate-300 text-slate-800 hover:bg-slate-50 shadow-2xs'
-                    }`}
-                    title="Kelola Anggota & Wilayah Kerja"
-                  >
-                    <Users size={14} className="text-emerald-600 shrink-0" />
-                    <span className="truncate">Anggota</span>
-                  </Link>
-
-                  <button
-                    onClick={onOpenBackupModal}
-                    className={`w-full py-2 px-2 rounded-xl border-2 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
-                      isDark
-                        ? 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700'
-                        : 'bg-white border-slate-300 text-slate-800 hover:bg-slate-50 shadow-2xs'
-                    }`}
-                    title="Cadangkan Database MySQL"
-                  >
-                    <Database size={14} className="text-blue-600 shrink-0" />
-                    <span className="truncate">Backup DB</span>
-                  </button>
-                </div>
-              </div>
-            )}
-
             {/* Portal Publik & Logout */}
             <div className="flex items-center gap-2 min-w-0">
               <Link
@@ -796,6 +811,15 @@ export default function SidebarNav({
           </div>
         )}
       </aside>
+
+      {/* Modal Broadcast Pengumuman Dinas */}
+      {showBroadcastModal && (
+        <BroadcastAnnouncementModal
+          isOpen={showBroadcastModal}
+          onClose={() => setShowBroadcastModal(false)}
+          isDark={isDark}
+        />
+      )}
     </>
   );
 }

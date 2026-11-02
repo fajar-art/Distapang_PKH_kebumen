@@ -60,7 +60,7 @@ export function NumberStepper({
 
   return (
     <div
-      className={`relative flex items-center rounded-xl border border-slate-200 bg-white overflow-hidden shadow-2xs focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20 transition-all ${
+      className={`relative flex items-center rounded-xl border border-slate-300 bg-white overflow-hidden shadow-2xs focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20 transition-all ${
         disabled ? 'bg-slate-100 opacity-60' : ''
       } ${className}`}
     >
@@ -70,7 +70,7 @@ export function NumberStepper({
         disabled={disabled || currentVal <= min}
         onClick={handleDecrement}
         tabIndex={-1}
-        className="w-10 h-10 min-w-[40px] flex items-center justify-center bg-slate-50 hover:bg-slate-100 active:bg-slate-200 text-slate-700 transition-colors border-r border-slate-200 disabled:opacity-30 disabled:cursor-not-allowed select-none cursor-pointer"
+        className="w-10 h-10 min-w-[40px] flex items-center justify-center bg-slate-50 hover:bg-slate-100 active:bg-slate-200 text-slate-700 transition-colors border-r border-slate-300 disabled:opacity-30 disabled:cursor-not-allowed select-none cursor-pointer"
         aria-label="Kurang"
       >
         <Minus size={15} strokeWidth={2.5} />
@@ -101,7 +101,7 @@ export function NumberStepper({
         disabled={disabled || (max !== undefined && currentVal >= max)}
         onClick={handleIncrement}
         tabIndex={-1}
-        className="w-10 h-10 min-w-[40px] flex items-center justify-center bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-700 transition-colors border-l border-slate-200 disabled:opacity-30 disabled:cursor-not-allowed select-none cursor-pointer"
+        className="w-10 h-10 min-w-[40px] flex items-center justify-center bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-700 transition-colors border-l border-slate-300 disabled:opacity-30 disabled:cursor-not-allowed select-none cursor-pointer"
         aria-label="Tambah"
       >
         <Plus size={15} strokeWidth={2.5} />
@@ -227,8 +227,8 @@ interface KondisiSectionProps {
 
 export function KondisiSection({ nomor, title, total, totalLabel, children }: KondisiSectionProps) {
   return (
-    <div className="p-4 sm:p-5 rounded-2xl border border-slate-200 bg-white space-y-3 shadow-2xs">
-      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+    <div className="p-4 sm:p-5 rounded-2xl border border-slate-300 bg-white space-y-3 shadow-2xs">
+      <div className="flex items-center justify-between pb-2 border-b border-slate-200">
         <h5 className="font-bold text-xs sm:text-sm text-slate-800 flex items-center gap-2">
           <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 font-sans font-bold text-xs flex items-center justify-center">
             {nomor}

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Stethoscope, Baby } from 'lucide-react';
+import { Stethoscope, Baby, Loader2 } from 'lucide-react';
 import { IBRecord } from './types';
 
 interface IbModalsProps {
@@ -29,6 +29,7 @@ interface IbModalsProps {
   >;
   onCloseBirth: () => void;
   onSaveBirth: () => void;
+  isSubmitting?: boolean;
 }
 
 export default function IbModals({
@@ -52,6 +53,7 @@ export default function IbModals({
   setBirthFormData,
   onCloseBirth,
   onSaveBirth,
+  isSubmitting = false,
 }: IbModalsProps) {
   return (
     <>
@@ -119,10 +121,17 @@ export default function IbModals({
               </button>
               <button
                 onClick={onSavePkb}
-                disabled={!pkbFormData.date || !pkbFormData.officer}
-                className="flex-1 min-h-touch h-11 rounded-xl bg-emerald-600 text-white font-bold text-xs sm:text-sm hover:bg-emerald-700 disabled:opacity-50 shadow-xs cursor-pointer"
+                disabled={isSubmitting || !pkbFormData.date || !pkbFormData.officer}
+                className="flex-1 min-h-touch h-11 rounded-xl bg-emerald-600 text-white font-bold text-xs sm:text-sm hover:bg-emerald-700 disabled:opacity-50 shadow-xs cursor-pointer flex items-center justify-center gap-2"
               >
-                Simpan Hasil PKB
+                {isSubmitting ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    <span>Menyimpan...</span>
+                  </>
+                ) : (
+                  'Simpan Hasil PKB'
+                )}
               </button>
             </div>
           </div>
@@ -169,10 +178,17 @@ export default function IbModals({
               </button>
               <button
                 onClick={onSaveSkipPkb}
-                disabled={!skipFormData.date}
-                className="flex-1 min-h-touch h-11 rounded-xl bg-slate-700 text-white font-bold text-xs sm:text-sm hover:bg-slate-800 disabled:opacity-50 cursor-pointer"
+                disabled={isSubmitting || !skipFormData.date}
+                className="flex-1 min-h-touch h-11 rounded-xl bg-slate-700 text-white font-bold text-xs sm:text-sm hover:bg-slate-800 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
               >
-                Simpan
+                {isSubmitting ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    <span>Menyimpan...</span>
+                  </>
+                ) : (
+                  'Simpan'
+                )}
               </button>
             </div>
           </div>
@@ -230,10 +246,17 @@ export default function IbModals({
               </button>
               <button
                 onClick={onSaveBirth}
-                disabled={!birthFormData.date}
-                className="flex-1 min-h-touch h-11 rounded-xl bg-blue-600 text-white font-bold text-xs sm:text-sm hover:bg-blue-700 disabled:opacity-50 shadow-xs cursor-pointer"
+                disabled={isSubmitting || !birthFormData.date}
+                className="flex-1 min-h-touch h-11 rounded-xl bg-blue-600 text-white font-bold text-xs sm:text-sm hover:bg-blue-700 disabled:opacity-50 shadow-xs cursor-pointer flex items-center justify-center gap-2"
               >
-                Simpan Kelahiran
+                {isSubmitting ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    <span>Menyimpan...</span>
+                  </>
+                ) : (
+                  'Simpan Kelahiran'
+                )}
               </button>
             </div>
           </div>

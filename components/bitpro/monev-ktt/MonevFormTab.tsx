@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useRef } from 'react';
 import * as XLSX from 'xlsx';
+import { showToast, showConfirm } from '@/components/common/CustomToast';
 import {
   Filter,
   Search,
@@ -20,6 +21,7 @@ import {
   FileSpreadsheet,
   Printer,
   Clock,
+  Loader2,
 } from 'lucide-react';
 import {
   DATA_WILAYAH,
@@ -29,6 +31,7 @@ import {
   KONDISI_KOSONG,
   hitungKondisi,
   getPuskeswanByKecamatan,
+  DAFTAR_PUSKESWAN_BINAAN,
 } from './types';
 import { BarisTernak, KondisiSection, NumberStepper } from './KondisiFormSections';
 import { compressImageFile } from '@/lib/file-compressor';
@@ -41,6 +44,9 @@ interface MonevFormTabProps {
   tahunBantuanFilter: string;
   onSelectTahunBantuan: (th: string) => void;
   daftarTahunAktif: string[];
+  // Wilayah Binaan
+  filterPuskeswan?: string;
+  setFilterPuskeswan?: (val: string) => void;
   // Form State
   editingId: string | null;
   formTahun: string;
@@ -101,6 +107,7 @@ interface MonevFormTabProps {
   onDelete: (id: string) => void;
   kttMasterList?: Array<{ id: any; namaKelompok: string; kecamatan: string; desa: string; ketua?: string }>;
   onShowHistory?: (data: FieldData) => void;
+  isSaving?: boolean;
 }
 
 export function MonevFormTab({
@@ -108,6 +115,8 @@ export function MonevFormTab({
   tahunBantuanFilter,
   onSelectTahunBantuan,
   daftarTahunAktif,
+  filterPuskeswan,
+  setFilterPuskeswan,
   editingId,
   formTahun,
   setFormTahun,
@@ -159,22 +168,37 @@ export function MonevFormTab({
   onDelete,
   kttMasterList = [],
   onShowHistory,
+  isSaving = false,
 }: MonevFormTabProps) {
   const kalkulasi = hitungKondisi(formKondisi);
 
-  // ── FILTER KECAMATAN DI DATABASE ──
-  const [filterKecamatan, setFilterKecamatan] = useState<string>('Semua Kecamatan');
-  const daftarKecamatan = useMemo(() => Object.keys(DATA_WILAYAH).sort(), []);
+  // ── FILTER WILAYAH BINAAN & KECAMATAN DI DATABASE ──
+  const [internalPuskeswan, setInternalPuskeswan] = useState<string>('Semua Wilayah Binaan');
+  const currentPuskeswan = filterPuskeswan ?? internalPuskeswan;
+  const updatePuskeswan = setFilterPuskeswan ?? setInternalPuskeswan;
 
-  // Filter Tabel Gabungan: Tahun Bantuan + Kecamatan
+  const [filterKecamatan, setFilterKecamatan] = useState<string>('Semua Kecamatan');
+  const daftarKecamatan = useMemo(() => {
+    const all = Object.keys(DATA_WILAYAH).sort();
+    if (currentPuskeswan === 'Semua Wilayah Binaan') return all;
+    return all.filter((kec) => getPuskeswanByKecamatan(kec) === currentPuskeswan);
+  }, [currentPuskeswan]);
+
+  // Filter Tabel Gabungan: Tahun Bantuan + Wilayah Binaan + Kecamatan
   const dbLapanganTabel = useMemo(() => {
     return dbLapanganFiltered.filter((d) => {
       // Filter hanya data Ruminansia (default jika tidak ada kategori atau kategori Ruminansia)
       if (d.kategori === 'Unggas') return false;
-      if (filterKecamatan === 'Semua Kecamatan') return true;
-      return (d.kec || '').toUpperCase() === filterKecamatan.toUpperCase();
+      if (currentPuskeswan !== 'Semua Wilayah Binaan') {
+        const puskeswanItem = getPuskeswanByKecamatan(d.kec);
+        if (puskeswanItem !== currentPuskeswan) return false;
+      }
+      if (filterKecamatan !== 'Semua Kecamatan') {
+        if ((d.kec || '').toUpperCase() !== filterKecamatan.toUpperCase()) return false;
+      }
+      return true;
     });
-  }, [dbLapanganFiltered, filterKecamatan]);
+  }, [dbLapanganFiltered, currentPuskeswan, filterKecamatan]);
 
   // Total Summary untuk Tabel Rekapitulasi Kondisi Terkini Ternak
   const rekapTotals = useMemo(() => {
@@ -252,7 +276,7 @@ export function MonevFormTab({
 
     const aoa = [
       ['TABEL REKAPITULASI KONDISI TERKINI TERNAK'],
-      [`Filter: Tahun ${tahunBantuanFilter} | Kecamatan: ${filterKecamatan}`],
+      [`Filter: Tahun ${tahunBantuanFilter} | Wilayah Binaan: ${currentPuskeswan} | Kecamatan: ${filterKecamatan}`],
       [],
       [
         'NO',
@@ -300,7 +324,9 @@ export function MonevFormTab({
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Kondisi_Terkini_Ternak');
-    XLSX.writeFile(wb, `Rekap_Kondisi_Terkini_Ternak_${tahunBantuanFilter}_${new Date().toISOString().split('T')[0]}.xlsx`);
+    const safeTh = (tahunBantuanFilter || 'Semua').replace(/[^a-zA-Z0-9]+/g, '_');
+    const safePusk = (currentPuskeswan || 'Semua').replace(/[^a-zA-Z0-9]+/g, '_');
+    XLSX.writeFile(wb, `Rekap_Kondisi_Terkini_Ternak_${safeTh}_${safePusk}_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   // ── FITUR EXCEL: UNDUH TEMPLATE & IMPORT MASSAL ──
@@ -511,13 +537,19 @@ export function MonevFormTab({
       }
 
       if (parsedItems.length === 0) {
-        alert('Tidak ada data KTT yang valid ditemukan di file Excel.\nPastikan kolom "Nama KTT" terisi.');
+        showToast.warning('Tidak ada data KTT yang valid ditemukan di file Excel. Pastikan kolom "Nama KTT" terisi.');
         setIsImporting(false);
         if (excelFileInputRef.current) excelFileInputRef.current.value = '';
         return;
       }
 
-      const konfirmasi = confirm(`Ditemukan ${parsedItems.length} data KTT di file Excel.\n\nApakah Anda yakin ingin mengimpor semua data ini ke sistem?`);
+      const konfirmasi = await showConfirm({
+        title: 'Konfirmasi Impor Excel',
+        message: `Ditemukan ${parsedItems.length} data KTT di file Excel. Apakah Anda yakin ingin mengimpor semua data ini ke sistem?`,
+        confirmText: 'Ya, Impor Semua',
+        cancelText: 'Batal',
+        type: 'info',
+      });
       if (!konfirmasi) {
         setIsImporting(false);
         if (excelFileInputRef.current) excelFileInputRef.current.value = '';
@@ -562,28 +594,17 @@ export function MonevFormTab({
   return (
     <div ref={formSectionRef} className="space-y-8 animate-in fade-in duration-200">
       {/* ── 1. FILTER TAHUN BANTUAN & KECAMATAN (FILTER DATABASE) ── */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+      <div className="bg-white p-5 rounded-2xl border border-slate-300 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
             <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
               <Filter size={16} strokeWidth={2.5} className="text-emerald-600" />
-              <span>Filter Data Lapangan (Tahun &amp; Kecamatan)</span>
+              <span>Filter Data Lapangan</span>
             </h3>
-            <p className="text-xs text-slate-500">
-              Saring daftar kelompok tani ternak berdasarkan tahun bantuan dan wilayah kecamatan
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
-              Tahun: {tahunBantuanFilter}
-            </span>
-            <span className="text-xs font-bold px-3 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-              {filterKecamatan}
-            </span>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
           <div>
             <label className="block text-xs font-bold text-slate-600 mb-1">Pilih Tahun Bantuan</label>
             <select
@@ -595,6 +616,25 @@ export function MonevFormTab({
               {daftarTahunAktif.map((th) => (
                 <option key={th} value={th}>
                   Tahun Bantuan {th}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-600 mb-1">Pilih Wilayah Binaan (Puskeswan)</label>
+            <select
+              value={currentPuskeswan}
+              onChange={(e) => {
+                updatePuskeswan(e.target.value);
+                setFilterKecamatan('Semua Kecamatan');
+              }}
+              className="w-full min-h-touch h-10 px-3.5 rounded-xl border border-slate-300 bg-white font-bold text-xs text-slate-800 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all shadow-2xs cursor-pointer"
+            >
+              <option value="Semua Wilayah Binaan">🏥 Semua Wilayah Binaan</option>
+              {DAFTAR_PUSKESWAN_BINAAN.map((p) => (
+                <option key={p} value={p}>
+                  {p}
                 </option>
               ))}
             </select>
@@ -619,28 +659,22 @@ export function MonevFormTab({
       </div>
 
       {/* ── 2. TABEL DAFTAR DATA LAPANGAN (REPOSISI KE BAWAH FILTER) ── */}
-      <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
-        <div className="p-4 sm:p-6 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3 bg-white">
+      <div className="bg-white border border-slate-300 rounded-2xl shadow-xs overflow-hidden">
+        <div className="p-4 sm:p-6 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white">
           <div>
             <h3 className="font-bold text-base sm:text-lg text-slate-900 flex items-center gap-2">
-              <span>Daftar Data Lapangan Ruminansia ({tahunBantuanFilter} · {filterKecamatan})</span>
-              <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold px-2.5 py-0.5 rounded-full">
-                {dbLapanganTabel.length} Kelompok
-              </span>
+              <span>Daftar Data Lapangan Ruminansia</span>
             </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Data terekam di sistem monev lapangan Dinas Pertanian dan Pangan
-            </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <button
               type="button"
               onClick={downloadTemplateExcel}
-              className="min-h-touch h-9 px-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+              className="flex-1 sm:flex-none min-h-touch h-9 px-3.5 rounded-xl border border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
               title="Unduh format template Excel untuk pengisian data massal"
             >
-              <Download size={13} strokeWidth={2.5} className="text-emerald-700" />
+              <Download size={14} strokeWidth={2.5} className="text-emerald-700" />
               <span>Unduh Template</span>
             </button>
 
@@ -657,7 +691,7 @@ export function MonevFormTab({
                   type="button"
                   disabled={isImporting}
                   onClick={() => excelFileInputRef.current?.click()}
-                  className="min-h-touch h-9 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs disabled:opacity-50"
+                  className="flex-1 sm:flex-none min-h-touch h-9 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-xs disabled:opacity-50"
                   title="Unggah file Excel untuk mengisi data KTT secara otomatis (Khusus Administrator)"
                 >
                   <FileSpreadsheet size={14} strokeWidth={2.5} />
@@ -670,28 +704,28 @@ export function MonevFormTab({
 
         <div className="overflow-x-auto w-full">
           <table className="w-full text-xs sm:text-sm text-left whitespace-nowrap border-collapse">
-            <thead className="bg-slate-50 text-slate-700 border-b border-slate-200 text-[11px] uppercase tracking-wider font-bold">
+            <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-b border-slate-300 dark:border-slate-700 text-[11px] uppercase tracking-wider font-bold">
               <tr>
-                <th rowSpan={2} className="px-3 py-2.5 text-center border-r border-b border-slate-200 w-12 align-middle">NO</th>
-                <th rowSpan={2} className="px-3 py-2.5 border-r border-b border-slate-200 align-middle">Nama KTT</th>
-                <th colSpan={3} className="px-3 py-2 text-center border-r border-b border-slate-200">ALAMAT</th>
-                <th rowSpan={2} className="px-3 py-2.5 text-center border-r border-b border-slate-200 align-middle">Jenis Ternak</th>
-                <th colSpan={2} className="px-3 py-2 text-center border-r border-b border-slate-200">Jml (Ekor)</th>
-                <th rowSpan={2} className="px-3 py-2.5 text-center border-r border-b border-slate-200 align-middle">BIBIT ODOT (STEK)</th>
-                <th rowSpan={2} className="px-3 py-2.5 text-center border-r border-b border-slate-200 align-middle">OBAT (PAKET)</th>
-                <th rowSpan={2} className="px-3 py-2.5 border-r border-b border-slate-200 align-middle">KETERANGAN</th>
-                <th rowSpan={2} className="px-3 py-2.5 text-center border-r border-b border-slate-200 align-middle">GPS, Foto &amp; Dokumen</th>
-                <th rowSpan={2} className="px-3 py-2.5 text-center border-b border-slate-200 align-middle">Aksi / Cetak</th>
+                <th rowSpan={2} className="px-3 py-2.5 text-center border-r border-b border-slate-300 dark:border-slate-700 w-12 align-middle">NO</th>
+                <th rowSpan={2} className="px-3 py-2.5 border-r border-b border-slate-300 dark:border-slate-700 align-middle">Nama KTT</th>
+                <th colSpan={3} className="px-3 py-2 text-center border-r border-b border-slate-300 dark:border-slate-700">ALAMAT</th>
+                <th rowSpan={2} className="px-3 py-2.5 text-center border-r border-b border-slate-300 dark:border-slate-700 align-middle">Jenis Ternak</th>
+                <th colSpan={2} className="px-3 py-2 text-center border-r border-b border-slate-300 dark:border-slate-700">Jml (Ekor)</th>
+                <th rowSpan={2} className="px-3 py-2.5 text-center border-r border-b border-slate-300 dark:border-slate-700 align-middle">BIBIT ODOT (STEK)</th>
+                <th rowSpan={2} className="px-3 py-2.5 text-center border-r border-b border-slate-300 dark:border-slate-700 align-middle">OBAT (PAKET)</th>
+                <th rowSpan={2} className="px-3 py-2.5 border-r border-b border-slate-300 dark:border-slate-700 align-middle">KETERANGAN</th>
+                <th rowSpan={2} className="px-3 py-2.5 text-center border-r border-b border-slate-300 dark:border-slate-700 align-middle">GPS, Foto &amp; Dokumen</th>
+                <th rowSpan={2} className="px-3 py-2.5 text-center border-b border-slate-300 dark:border-slate-700 align-middle">Aksi / Cetak</th>
               </tr>
               <tr>
-                <th className="px-3 py-2 border-r border-b border-slate-200 text-center text-[10px]">Desa</th>
-                <th className="px-3 py-2 border-r border-b border-slate-200 text-center text-[10px]">Kecamatan</th>
-                <th className="px-3 py-2 border-r border-b border-slate-200 text-center text-[10px]">Wil. Puskeswan</th>
-                <th className="px-3 py-2 border-r border-b border-slate-200 text-center text-[10px]">B</th>
-                <th className="px-3 py-2 border-r border-b border-slate-200 text-center text-[10px]">J</th>
+                <th className="px-3 py-2 border-r border-b border-slate-300 dark:border-slate-700 text-center text-[10px]">Desa</th>
+                <th className="px-3 py-2 border-r border-b border-slate-300 dark:border-slate-700 text-center text-[10px]">Kecamatan</th>
+                <th className="px-3 py-2 border-r border-b border-slate-300 dark:border-slate-700 text-center text-[10px]">Wil. Puskeswan</th>
+                <th className="px-3 py-2 border-r border-b border-slate-300 dark:border-slate-700 text-center text-[10px]">B</th>
+                <th className="px-3 py-2 border-r border-b border-slate-300 dark:border-slate-700 text-center text-[10px]">J</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-300 dark:divide-slate-700">
               {dbLapanganTabel.map((d, idx) => {
                 const baMati = d.kondisi.matiBangkaiBAPdf;
                 const baJual = d.kondisi.jualBAPdf;
@@ -700,12 +734,19 @@ export function MonevFormTab({
                 const allPhotos = (d.photos && d.photos.length > 0) ? d.photos : (d.photo ? [d.photo] : []);
 
                 return (
-                  <tr key={d.id} className="hover:bg-slate-50/80 transition-colors divide-x divide-slate-100">
-                    <td className="px-3 py-3 text-center font-bold text-emerald-700 text-xs">{idx + 1}</td>
-                    <td className="px-3 py-3 font-bold text-slate-900">
+                  <tr
+                    key={d.id}
+                    className={`transition-colors divide-x divide-slate-300 dark:divide-slate-700 ${
+                      idx % 2 === 0
+                        ? 'bg-white dark:bg-slate-900/60 hover:bg-blue-50/60 dark:hover:bg-slate-800/60'
+                        : 'bg-slate-100 dark:bg-slate-800/50 hover:bg-blue-50/60 dark:hover:bg-slate-800/70'
+                    }`}
+                  >
+                    <td className="px-3 py-3 text-center font-bold text-emerald-700 dark:text-emerald-400 text-xs">{idx + 1}</td>
+                    <td className="px-3 py-3 font-bold text-slate-900 dark:text-slate-100">
                       <div>{d.namaKtt}</div>
                       {d.namaKetua && (
-                        <span className="text-[10px] text-slate-500 font-normal block">Ketua: {d.namaKetua}</span>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal block">Ketua: {d.namaKetua}</span>
                       )}
                     </td>
                     <td className="px-3 py-3 text-slate-700 text-xs">{d.desa || '-'}</td>
@@ -884,7 +925,7 @@ export function MonevFormTab({
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
               <div>
                 <label className="block text-xs font-sans font-bold uppercase tracking-wider text-slate-600 mb-1">
-                  Tahun Bantuan <span className="text-red-500">*</span>
+                  Tahun Bantuan
                 </label>
                 <select
                   value={formTahun}
@@ -899,7 +940,7 @@ export function MonevFormTab({
 
               <div>
                 <label className="block text-xs font-sans font-bold uppercase tracking-wider text-slate-600 mb-1">
-                  Sumber Hibah / Sumber Dana
+                  Sumber Hibah / Sumber Dana <span className="text-[11px] text-slate-400 font-normal">(opsional)</span>
                 </label>
                 <input
                   type="text"
@@ -912,7 +953,7 @@ export function MonevFormTab({
 
               <div>
                 <label className="block text-xs font-sans font-bold uppercase tracking-wider text-slate-600 mb-1">
-                  Kecamatan <span className="text-red-500">*</span>
+                  Kecamatan
                 </label>
                 <select
                   value={formKec}
@@ -932,7 +973,7 @@ export function MonevFormTab({
 
               <div>
                 <label className="block text-xs font-sans font-bold uppercase tracking-wider text-slate-600 mb-1">
-                  Desa / Kelurahan <span className="text-red-500">*</span>
+                  Desa / Kelurahan
                 </label>
                 <select
                   value={formDesa}
@@ -952,7 +993,7 @@ export function MonevFormTab({
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
               <div className="relative" ref={kttInputRef}>
                 <label className="block text-xs font-sans font-bold uppercase tracking-wider text-slate-600 mb-1 flex items-center justify-between">
-                  <span>Nama Kelompok (KTT) <span className="text-red-500">*</span></span>
+                  <span>Nama Kelompok (KTT)</span>
                   <span className="text-[10px] font-semibold text-emerald-700">🔍 Live Search Master</span>
                 </label>
                 <div className="relative">
@@ -996,7 +1037,7 @@ export function MonevFormTab({
 
               <div>
                 <label className="block text-xs font-sans font-bold uppercase tracking-wider text-slate-600 mb-1">
-                  Nama Ketua Kelompok
+                  Nama Ketua Kelompok <span className="text-[11px] text-slate-400 font-normal">(opsional)</span>
                 </label>
                 <input
                   type="text"
@@ -1009,7 +1050,7 @@ export function MonevFormTab({
 
               <div>
                 <label className="block text-xs font-sans font-bold uppercase tracking-wider text-slate-600 mb-1">
-                  Komoditas Ruminansia <span className="text-red-500">*</span>
+                  Komoditas Ruminansia
                 </label>
                 <select
                   value={formJenis}
@@ -1024,7 +1065,7 @@ export function MonevFormTab({
 
               <div>
                 <label className="block text-xs font-sans font-bold uppercase tracking-wider text-slate-600 mb-1">
-                  Waktu Pelaksanaan Monev / Kondisi Tahun <span className="text-red-500">*</span>
+                  Waktu Pelaksanaan Monev / Kondisi Tahun
                 </label>
                 <input
                   type="date"
@@ -1333,7 +1374,7 @@ export function MonevFormTab({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-xs font-sans font-bold uppercase tracking-wider text-slate-600">
-                    Titik Koordinat Kandang <span className="text-red-500">*</span>
+                    Titik Koordinat Kandang
                   </label>
                   <button
                     type="button"
@@ -1521,9 +1562,9 @@ export function MonevFormTab({
 
             {/* Grid Tanda Tangan: Desktop Samping Kanan-Kiri, Mobile Atas-Bawah */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-3.5 rounded-xl border border-slate-200 bg-white/90 space-y-2.5 shadow-2xs">
+              <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-3 shadow-2xs">
                 <div>
-                  <label className="block text-xs font-sans font-bold uppercase tracking-wider text-slate-600 mb-1">
+                  <label className="block text-xs font-sans font-bold uppercase tracking-wider text-slate-600 mb-1.5">
                     Nama Petugas Monev 1
                   </label>
                   <input
@@ -1534,17 +1575,19 @@ export function MonevFormTab({
                     className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold focus:border-emerald-500 outline-none"
                   />
                 </div>
-                <DigitalSignaturePad
-                  label="Tanda Tangan Petugas 1"
-                  value={formKondisi.ttdPetugas1}
-                  onChange={(val) => updateKondisi('ttdPetugas1', val)}
-                  helperText="Goreskan tanda tangan digital untuk Petugas Monev 1."
-                />
+                <div className="pt-2 border-t border-slate-100">
+                  <DigitalSignaturePad
+                    label="Tanda Tangan Petugas 1"
+                    value={formKondisi.ttdPetugas1}
+                    onChange={(val) => updateKondisi('ttdPetugas1', val)}
+                    helperText="Goreskan tanda tangan digital untuk Petugas Monev 1."
+                  />
+                </div>
               </div>
 
-              <div className="p-3.5 rounded-xl border border-slate-200 bg-white/90 space-y-2.5 shadow-2xs">
+              <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-3 shadow-2xs">
                 <div>
-                  <label className="block text-xs font-sans font-bold uppercase tracking-wider text-slate-600 mb-1">
+                  <label className="block text-xs font-sans font-bold uppercase tracking-wider text-slate-600 mb-1.5">
                     Nama Petugas Monev 2 (Opsional)
                   </label>
                   <input
@@ -1555,12 +1598,14 @@ export function MonevFormTab({
                     className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold focus:border-emerald-500 outline-none"
                   />
                 </div>
-                <DigitalSignaturePad
-                  label="Tanda Tangan Petugas 2 (Opsional)"
-                  value={formKondisi.ttdPetugas2}
-                  onChange={(val) => updateKondisi('ttdPetugas2', val)}
-                  helperText="Goreskan tanda tangan digital untuk Petugas Monev 2."
-                />
+                <div className="pt-2 border-t border-slate-100">
+                  <DigitalSignaturePad
+                    label="Tanda Tangan Petugas 2 (Opsional)"
+                    value={formKondisi.ttdPetugas2}
+                    onChange={(val) => updateKondisi('ttdPetugas2', val)}
+                    helperText="Goreskan tanda tangan digital untuk Petugas Monev 2."
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -1617,37 +1662,39 @@ export function MonevFormTab({
             </button>
             <button
               type="submit"
-              className="w-full sm:flex-1 min-h-touch h-11 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold shadow-xs transition-all cursor-pointer"
+              disabled={isSaving}
+              className="w-full sm:flex-1 min-h-touch h-11 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold shadow-xs transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {editingId ? 'Perbarui Data Monev Ruminansia' : 'Simpan Data Monev Ruminansia'}
+              {isSaving ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>Menyimpan...</span>
+                </>
+              ) : (
+                editingId ? 'Perbarui Data Monev Ruminansia' : 'Simpan Data Monev Ruminansia'
+              )}
             </button>
           </div>
         </form>
       </div>
 
       {/* ── 4. TABEL REKAPITULASI KONDISI TERKINI TERNAK ── */}
-      <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
-        <div className="p-4 sm:p-6 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3 bg-white">
+      <div className="bg-white border border-slate-300 rounded-2xl shadow-xs overflow-hidden">
+        <div className="p-4 sm:p-6 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white">
           <div>
             <h3 className="font-bold text-base sm:text-lg text-slate-900 flex items-center gap-2">
               <span>Tabel Rekapitulasi Kondisi Terkini Ternak</span>
-              <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold px-2.5 py-0.5 rounded-full">
-                {tahunBantuanFilter} · {filterKecamatan}
-              </span>
-              <span className="bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold px-2.5 py-0.5 rounded-full">
-                {dbLapanganTabel.length} Kelompok
-              </span>
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
               Rekapitulasi kondisi terkini ternak mengikuti data monitoring &amp; evaluasi di atas
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <button
               type="button"
               onClick={downloadExcelKondisiTerkini}
-              className="min-h-touch h-9 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+              className="flex-1 sm:flex-none min-h-touch h-9 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-xs"
               title="Unduh Tabel Rekapitulasi Kondisi Terkini Ternak format Excel"
             >
               <Download size={14} strokeWidth={2.5} />
@@ -1729,43 +1776,50 @@ export function MonevFormTab({
                 const kondisiTahun = (d.waktuMonev || (d.tahun ? `TAHUN ${d.tahun}` : '-')).toUpperCase();
 
                 return (
-                  <tr key={d.id} className="hover:bg-slate-50/80 transition-colors border-b border-slate-200">
-                    <td className="px-3 py-2.5 text-center font-bold text-slate-700 text-xs border-r border-slate-200">
+                  <tr
+                    key={d.id}
+                    className={`transition-colors border-b border-slate-300 dark:border-slate-700 ${
+                      idx % 2 === 0
+                        ? 'bg-white dark:bg-slate-900/60 hover:bg-blue-50/60 dark:hover:bg-slate-800/60'
+                        : 'bg-slate-100 dark:bg-slate-800/50 hover:bg-blue-50/60 dark:hover:bg-slate-800/70'
+                    }`}
+                  >
+                    <td className="px-3 py-2.5 text-center font-bold text-slate-700 dark:text-slate-300 text-xs border-r border-slate-300 dark:border-slate-700">
                       {idx + 1}
                     </td>
-                    <td className="px-4 py-2.5 font-bold text-slate-900 border-r border-slate-200">
+                    <td className="px-4 py-2.5 font-bold text-slate-900 dark:text-slate-100 border-r border-slate-300 dark:border-slate-700">
                       <div>{d.namaKtt}</div>
                       {d.desa && d.kec && (
-                        <span className="text-[10px] text-slate-400 font-normal block">
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500 font-normal block">
                           Desa {d.desa}, Kec. {d.kec}
                         </span>
                       )}
                     </td>
-                    <td className="px-3 py-2.5 text-center font-semibold text-slate-700 border-r border-slate-200">
+                    <td className="px-3 py-2.5 text-center font-semibold text-slate-700 dark:text-slate-300 border-r border-slate-300 dark:border-slate-700">
                       {anakLahir}
                     </td>
-                    <td className="px-3 py-2.5 text-center font-semibold text-slate-700 border-r border-slate-200">
+                    <td className="px-3 py-2.5 text-center font-semibold text-slate-700 dark:text-slate-300 border-r border-slate-300 dark:border-slate-700">
                       {anakMati}
                     </td>
-                    <td className="px-3 py-2.5 text-center font-semibold text-slate-700 border-r border-slate-200">
+                    <td className="px-3 py-2.5 text-center font-semibold text-slate-700 dark:text-slate-300 border-r border-slate-300 dark:border-slate-700">
                       {anakDijual}
                     </td>
-                    <td className="px-3 py-2.5 text-center font-semibold text-slate-700 border-r border-slate-200">
+                    <td className="px-3 py-2.5 text-center font-semibold text-slate-700 dark:text-slate-300 border-r border-slate-300 dark:border-slate-700">
                       {pokokMati}
                     </td>
-                    <td className="px-3 py-2.5 text-center font-semibold text-slate-700 border-r border-slate-200">
+                    <td className="px-3 py-2.5 text-center font-semibold text-slate-700 dark:text-slate-300 border-r border-slate-300 dark:border-slate-700">
                       {pokokPotongPaksa}
                     </td>
-                    <td className="px-3 py-2.5 text-center font-semibold text-slate-700 border-r border-slate-200">
+                    <td className="px-3 py-2.5 text-center font-semibold text-slate-700 dark:text-slate-300 border-r border-slate-300 dark:border-slate-700">
                       {pokokDijual}
                     </td>
-                    <td className="px-3 py-2.5 text-center font-semibold text-slate-700 border-r border-slate-200">
+                    <td className="px-3 py-2.5 text-center font-semibold text-slate-700 dark:text-slate-300 border-r border-slate-300 dark:border-slate-700">
                       {beliPengganti}
                     </td>
-                    <td className="px-3 py-2.5 text-center font-black text-emerald-950 bg-[#d4edda]/70 border-r border-slate-200">
+                    <td className="px-3 py-2.5 text-center font-black text-emerald-950 dark:text-emerald-300 bg-[#d4edda]/70 dark:bg-emerald-950/40 border-r border-slate-300 dark:border-slate-700">
                       {kondisiSaatIni}
                     </td>
-                    <td className="px-4 py-2.5 text-center font-bold text-slate-800 text-xs bg-amber-50/40">
+                    <td className="px-4 py-2.5 text-center font-bold text-slate-800 dark:text-slate-200 text-xs bg-amber-50/40 dark:bg-amber-950/20">
                       {kondisiTahun}
                     </td>
                   </tr>
@@ -1782,7 +1836,7 @@ export function MonevFormTab({
             </tbody>
             {dbLapanganTabel.length > 0 && (
               <tfoot className="bg-slate-100 font-bold border-t-2 border-slate-300 text-xs">
-                <tr className="divide-x divide-slate-200 border-b border-slate-300">
+                <tr className="divide-x divide-slate-300 border-b border-slate-300">
                   <td colSpan={2} className="px-4 py-3 text-center font-black uppercase text-slate-900 tracking-wider">
                     TOTAL
                   </td>

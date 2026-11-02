@@ -1,53 +1,50 @@
 'use client';
 
 import React from 'react';
-import { ArrowRight } from 'lucide-react';
-import { MODULES } from './types';
 
 interface LandingHeroSectionProps {
-  onSelectModule: (modKey: 'bitpro' | 'keswan' | 'kesmavet') => void;
+  onSelectModule?: (modKey: 'bitpro' | 'keswan' | 'kesmavet') => void;
 }
 
 export default function LandingHeroSection({ onSelectModule }: LandingHeroSectionProps) {
   return (
-    <section
-      id="ringkasan"
-      className="rounded-2xl sm:rounded-3xl border-2 border-slate-200 dark:border-slate-800 bg-[#f8fbff] dark:bg-slate-900/90 p-4 sm:p-6 lg:p-7 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 shadow-xs"
-    >
-      <div className="max-w-md xl:max-w-xl">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white dark:bg-slate-800 border-2 border-blue-200 dark:border-blue-800 text-xs sm:text-sm font-bold text-blue-800 dark:text-blue-300 mb-3 shadow-2xs">
-          <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-blue-600 animate-pulse shrink-0" />
-          <span className="inline sm:hidden">Portal Resmi Peternakan &amp; Keswan</span>
-          <span className="hidden sm:inline">Portal Resmi Bidang Peternakan dan Kesehatan Hewan</span>
-        </div>
-        <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-snug mb-3">
-          Satu Ekosistem untuk Data <span className="text-blue-600 dark:text-blue-400">Peternakan Kebumen</span>
-        </h1>
-        <p className="text-xs sm:text-base text-slate-700 dark:text-slate-200 leading-relaxed mb-3 sm:mb-4">
-          Sistem Informasi Manajemen Terpadu yang mengintegrasikan data Perbibitan &amp; Produksi (Bitpro), Kesehatan Hewan (Keswan), dan Kesehatan Masyarakat Veteriner (Kesmavet).
-        </p>
-        
-        <div className="flex items-center gap-1.5 text-xs sm:text-sm font-bold text-blue-700 dark:text-blue-400">
-          <span>Pilih modul untuk melihat data</span>
-          <ArrowRight size={14} className="shrink-0" />
-        </div>
+    <section id="ringkasan" className="relative w-full overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white transition-colors duration-200">
+      {/* ── BACKGROUND GAMBAR FULL-WIDTH (FOKUS 65% & JELAS TERLIHAT DI MODE TERANG & GELAP) ── */}
+      <div className="absolute inset-0 w-full h-full overflow-hidden">
+        <img
+          src="/images/beranda-hero-bg.jpg"
+          alt="Latar Belakang Peternakan Kebumen"
+          style={{ objectPosition: 'center 65%' }}
+          className="w-full h-full object-cover filter opacity-80 dark:opacity-80 brightness-105 dark:brightness-90 contrast-105 dark:contrast-110 transition-all duration-300"
+        />
+
+        {/* Lapisan Tint Gradasi: Tipis & Bening agar Foto Sapi & Peternak Tetap Jelas Terlihat di Mode Gelap */}
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-50/70 via-white/50 to-sky-50/70 dark:bg-gradient-to-b dark:from-slate-950/60 dark:via-slate-950/30 dark:to-slate-950/80 transition-colors duration-300" />
       </div>
 
-      {/* ── KARTU MODUL BERGAMBAR (Bitpro, Keswan, Kesmavet) ── */}
-      <div className="grid grid-cols-3 gap-2.5 sm:gap-3.5 w-full lg:w-auto shrink-0 justify-items-center">
-        {MODULES.map((mod) => (
-          <div
-            key={mod.key}
-            onClick={() => onSelectModule(mod.key as 'bitpro' | 'keswan' | 'kesmavet')}
-            className="group relative w-full max-w-[110px] xs:max-w-[130px] sm:max-w-[160px] md:max-w-[180px] lg:max-w-[170px] xl:max-w-[185px] transition-all duration-300 sm:hover:scale-[1.04] active:scale-[0.97] cursor-pointer drop-shadow-md sm:hover:drop-shadow-xl select-none"
-          >
-            <img
-              src={mod.image}
-              alt={`Kartu Modul ${mod.label}`}
-              className="w-full h-auto block rounded-2xl sm:rounded-3xl"
-            />
-          </div>
-        ))}
+      {/* ── GRADASI DI BAGIAN ATAS (MENYATU MULUS DENGAN NAVBAR) ── */}
+      <div className="absolute top-0 left-0 right-0 h-14 sm:h-20 bg-gradient-to-b from-slate-50/70 dark:from-slate-950/60 to-transparent pointer-events-none z-1" />
+
+      {/* ── GRADASI DI BAGIAN BAWAH (MENYATU DENGAN SECTION BERIKUTNYA) ── */}
+      <div className="absolute bottom-0 left-0 right-0 h-24 sm:h-36 bg-gradient-to-b from-transparent via-slate-50/85 to-slate-50 dark:via-slate-950/60 dark:to-slate-950 pointer-events-none z-1" />
+
+      {/* ── AMBIENT GLOW DI BELAKANG TEKS UNTUK KETERBACAAN MAKSIMAL ── */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl h-48 rounded-full bg-blue-500/0 dark:bg-blue-600/10 blur-3xl pointer-events-none" />
+
+      {/* ── KONTEN TEKS HERO (RATA TENGAH & JUSTIFY) ── */}
+      <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-16 sm:pt-12 sm:pb-20 lg:pt-14 lg:pb-22 flex flex-col items-center">
+        {/* Judul Rata Tengah */}
+        <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-center tracking-tight leading-snug sm:leading-tight mb-5 max-w-3xl text-slate-900 dark:text-white drop-shadow-sm dark:drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)]">
+          Satu Ekosistem untuk Data{' '}
+          <span className="text-blue-600 dark:text-transparent dark:bg-clip-text dark:bg-gradient-to-r dark:from-blue-400 dark:via-sky-300 dark:to-teal-300">
+            Peternakan Kebumen
+          </span>
+        </h1>
+
+        {/* Deskripsi Rata Kanan-Kiri (Justify) */}
+        <p className="text-sm sm:text-base md:text-lg text-slate-900 dark:text-slate-100 leading-relaxed sm:leading-loose text-justify max-w-2xl font-semibold px-1 drop-shadow-[0_1px_3px_rgba(255,255,255,0.95)] dark:drop-shadow-[0_1px_8px_rgba(0,0,0,0.85)]">
+          Sistem Informasi Manajemen Terpadu yang mengintegrasikan data Perbibitan &amp; Produksi (Bitpro), Kesehatan Hewan (Keswan), dan Kesehatan Masyarakat Veteriner (Kesmavet) secara akurat, transparan, dan terbuka guna mendukung ketahanan pangan dan kesejahteraan peternak di seluruh wilayah Kabupaten Kebumen.
+        </p>
       </div>
     </section>
   );

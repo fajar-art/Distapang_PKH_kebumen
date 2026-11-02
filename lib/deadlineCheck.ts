@@ -50,9 +50,10 @@ export const BULAN_NAMES = [
 export function checkMonthlyDeadline(
   bulan: string | number,
   tahun: string | number,
-  isAdmin: boolean = false
+  isAdmin: boolean = false,
+  isMasterUnlocked: boolean = false
 ): { isLocked: boolean; reason?: string } {
-  if (isAdmin) {
+  if (isAdmin || isMasterUnlocked) {
     return { isLocked: false };
   }
 
@@ -102,9 +103,10 @@ export function checkMonthlyDeadline(
  */
 export function checkDailyDeadline(
   dateStr: string,
-  isAdmin: boolean = false
+  isAdmin: boolean = false,
+  isMasterUnlocked: boolean = false
 ): { isLocked: boolean; reason?: string } {
-  if (isAdmin) {
+  if (isAdmin || isMasterUnlocked) {
     return { isLocked: false };
   }
 

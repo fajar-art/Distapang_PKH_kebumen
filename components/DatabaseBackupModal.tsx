@@ -14,8 +14,12 @@ import {
   ShieldCheck,
   Server,
   Layers,
+  KeyRound,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { getAuthSession } from '@/lib/auth';
+import { showConfirm, showToast } from '@/components/common/CustomToast';
 
 interface DatabaseBackupModalProps {
   isOpen: boolean;
@@ -30,6 +34,13 @@ export default function DatabaseBackupModal({ isOpen, onClose }: DatabaseBackupM
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [restoreStatus, setRestoreStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [isReadOnlyAdmin, setIsReadOnlyAdmin] = useState(false);
+
+  // State Otorisasi Password Dinamis Harian
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authAction, setAuthAction] = useState<'download' | 'restore'>('download');
+  const [inputPassword, setInputPassword] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [showPasswordText, setShowPasswordText] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -77,49 +88,11 @@ export default function DatabaseBackupModal({ isOpen, onClose }: DatabaseBackupM
     }
   };
 
-  const handleDownloadBackup = async () => {
-    try {
-      setIsDownloading(true);
-      setRestoreStatus(null);
-      const res = await fetch('/api/admin/backup-db');
-      if (!res.ok) throw new Error('Gagal mengunduh file backup dari server');
-
-      const blob = await res.blob();
-      const contentDisposition = res.headers.get('Content-Disposition');
-      let filename = 'backup_distapang_pkh.sql';
-      if (contentDisposition) {
-        const match = contentDisposition.match(/filename="?([^"]+)"?/);
-        if (match && match[1]) filename = match[1];
-      }
-
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-
-      setRestoreStatus({
-        type: 'success',
-        message: `File cadangan "${filename}" berhasil diunduh ke komputer Anda.`,
-      });
-    } catch (err: any) {
-      setRestoreStatus({
-        type: 'error',
-        message: 'Gagal membuat backup: ' + err.message,
-      });
-    } finally {
-      setIsDownloading(false);
-    }
-  };
-
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       if (!file.name.endsWith('.sql')) {
-        alert('Mohon pilih file berformat .sql');
+        showToast('Mohon pilih file berformat .sql', 'warning');
         return;
       }
       setSelectedFile(file);
@@ -127,45 +100,116 @@ export default function DatabaseBackupModal({ isOpen, onClose }: DatabaseBackupM
     }
   };
 
-  const handleRestoreDatabase = async () => {
+  const requestDownloadBackup = () => {
+    setAuthAction('download');
+    setInputPassword('');
+    setAuthError('');
+    setShowAuthModal(true);
+  };
+
+  const requestRestoreDatabase = async () => {
     if (!selectedFile) return;
 
-    const confirmed = window.confirm(
-      `PERINGATAN: Memulihkan database dari "${selectedFile.name}" akan menimpa/memperbarui data tabel yang ada saat ini. Apakah Anda yakin ingin melanjutkan?`
-    );
+    const confirmed = await showConfirm({
+      title: 'Peringatan Pemulihan Database',
+      message: `Memulihkan database dari "${selectedFile.name}" akan menimpa/memperbarui data tabel yang ada saat ini. Apakah Anda yakin ingin melanjutkan?`,
+      confirmText: 'Ya, Lanjutkan',
+      cancelText: 'Batal',
+      type: 'danger',
+    });
     if (!confirmed) return;
 
-    try {
-      setIsRestoring(true);
-      setRestoreStatus(null);
+    setAuthAction('restore');
+    setInputPassword('');
+    setAuthError('');
+    setShowAuthModal(true);
+  };
 
-      const formData = new FormData();
-      formData.append('file', selectedFile);
+  const handleAuthSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inputPassword.trim()) {
+      setAuthError('Silakan masukkan password harian!');
+      return;
+    }
 
-      const res = await fetch('/api/admin/backup-db', {
-        method: 'POST',
-        body: formData,
-      });
+    if (authAction === 'download') {
+      try {
+        setIsDownloading(true);
+        setAuthError('');
+        const res = await fetch(`/api/admin/backup-db?password=${encodeURIComponent(inputPassword.trim())}`, {
+          headers: {
+            'x-backup-password': inputPassword.trim(),
+          },
+        });
 
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        throw new Error(json.error || 'Terjadi kesalahan saat memulihkan database.');
+        if (!res.ok) {
+          const errJson = await res.json().catch(() => ({}));
+          throw new Error(errJson.error || 'Password otorisasi salah!');
+        }
+
+        const blob = await res.blob();
+        const contentDisposition = res.headers.get('Content-Disposition');
+        let filename = 'backup_distapang_pkh.sql';
+        if (contentDisposition) {
+          const match = contentDisposition.match(/filename="?([^"]+)"?/);
+          if (match && match[1]) filename = match[1];
+        }
+
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        setShowAuthModal(false);
+        setRestoreStatus({
+          type: 'success',
+          message: `File cadangan "${filename}" berhasil diunduh ke komputer Anda.`,
+        });
+      } catch (err: any) {
+        setAuthError(err.message || 'Password otorisasi salah!');
+      } finally {
+        setIsDownloading(false);
       }
+    } else if (authAction === 'restore') {
+      if (!selectedFile) return;
+      try {
+        setIsRestoring(true);
+        setAuthError('');
 
-      setRestoreStatus({
-        type: 'success',
-        message: json.message || 'Database berhasil dipulihkan secara penuh!',
-      });
-      setSelectedFile(null);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      loadDbInfo();
-    } catch (err: any) {
-      setRestoreStatus({
-        type: 'error',
-        message: err.message || 'Gagal memulihkan database.',
-      });
-    } finally {
-      setIsRestoring(false);
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        formData.append('password', inputPassword.trim());
+
+        const res = await fetch('/api/admin/backup-db', {
+          method: 'POST',
+          headers: {
+            'x-backup-password': inputPassword.trim(),
+          },
+          body: formData,
+        });
+
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          throw new Error(json.error || 'Terjadi kesalahan saat memulihkan database.');
+        }
+
+        setShowAuthModal(false);
+        setRestoreStatus({
+          type: 'success',
+          message: json.message || 'Database berhasil dipulihkan secara penuh!',
+        });
+        setSelectedFile(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        loadDbInfo();
+      } catch (err: any) {
+        setAuthError(err.message || 'Password otorisasi salah!');
+      } finally {
+        setIsRestoring(false);
+      }
     }
   };
 
@@ -283,7 +327,7 @@ export default function DatabaseBackupModal({ isOpen, onClose }: DatabaseBackupM
               </div>
 
               <button
-                onClick={handleDownloadBackup}
+                onClick={requestDownloadBackup}
                 disabled={isDownloading}
                 className="min-h-touch h-10 px-5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-xs shrink-0 cursor-pointer"
               >
@@ -339,7 +383,7 @@ export default function DatabaseBackupModal({ isOpen, onClose }: DatabaseBackupM
                   </label>
 
                   <button
-                    onClick={handleRestoreDatabase}
+                    onClick={requestRestoreDatabase}
                     disabled={!selectedFile || isRestoring}
                     className="min-h-touch h-10 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-xs shrink-0 cursor-pointer"
                   >
@@ -386,6 +430,106 @@ export default function DatabaseBackupModal({ isOpen, onClose }: DatabaseBackupM
           </button>
         </div>
       </div>
+
+      {/* ── MODAL OTORISASI PASSWORD HARIAN  ── */}
+      {showAuthModal && (
+        <div
+          className="fixed inset-0 z-60 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="w-full max-w-md bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-slate-200 space-y-5 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-xs shrink-0">
+                  <KeyRound size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900">
+                    Otorisasi Keamanan
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {authAction === 'download'
+                      ? 'Unduh File Cadangan Database'
+                      : 'Pemulihan (Restore) Database'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAuthModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-sm font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleAuthSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-between">
+                  <span>Password Otorisasi Harian</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPasswordText ? 'text' : 'password'}
+                    required
+                    autoFocus
+                    maxLength={16}
+                    value={inputPassword}
+                    onChange={(e) => {
+                      setInputPassword(e.target.value);
+                      setAuthError('');
+                    }}
+                    placeholder="Masukkan password harian..."
+                    className="w-full h-11 px-3.5 pr-10 rounded-xl border border-slate-200 bg-slate-50/70 font-mono text-sm font-bold text-slate-900 focus:bg-white focus:border-amber-500 outline-none transition-all tracking-wider"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswordText(!showPasswordText)}
+                    className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 cursor-pointer"
+                  >
+                    {showPasswordText ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+                {authError && (
+                  <p className="text-xs font-bold text-rose-600 mt-2 flex items-center gap-1.5 animate-in fade-in">
+                    <AlertTriangle size={14} className="shrink-0" />
+                    <span>{authError}</span>
+                  </p>
+                )}
+              </div>
+
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowAuthModal(false)}
+                  className="min-h-touch h-10 px-4 rounded-xl border border-slate-200 bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-700 transition-colors cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isDownloading || isRestoring}
+                  className="flex-1 min-h-touch h-10 px-5 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white text-xs font-bold shadow-xs transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                  {isDownloading || isRestoring ? (
+                    <RefreshCw size={14} className="animate-spin" />
+                  ) : (
+                    <ShieldCheck size={14} />
+                  )}
+                  <span>
+                    {isDownloading || isRestoring
+                      ? 'Memverifikasi...'
+                      : authAction === 'download'
+                      ? 'Verifikasi & Unduh'
+                      : 'Verifikasi & Pulihkan'}
+                  </span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

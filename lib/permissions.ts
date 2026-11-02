@@ -50,6 +50,7 @@ export const DEFAULT_FULL_PERMISSIONS: UserPermissions = {
       'rph-tph-tpu': { enabled: true, mode: 'edit' },
       'pakan-ternak': { enabled: true, mode: 'edit' },
       'pasar-hewan': { enabled: true, mode: 'edit' },
+      'hewan-kurban': { enabled: true, mode: 'edit' },
     },
   },
   aset: {
@@ -95,6 +96,7 @@ export const DEFAULT_VIEW_ONLY_PERMISSIONS: UserPermissions = {
       'rph-tph-tpu': { enabled: true, mode: 'view' },
       'pakan-ternak': { enabled: true, mode: 'view' },
       'pasar-hewan': { enabled: true, mode: 'view' },
+      'hewan-kurban': { enabled: true, mode: 'view' },
     },
   },
   aset: {
@@ -139,8 +141,18 @@ export function getDefaultPermissionsForRole(role: string): UserPermissions {
     base.keswan.submenus['data-vaksinasi'] = { enabled: true, mode: 'edit' };
     base.keswan.submenus['laporan-penyakit'] = { enabled: true, mode: 'edit' };
     base.keswan.submenus['lalu-lintas-ternak'] = { enabled: true, mode: 'edit' };
+  } else if (r === 'petugas pkb') {
+    // Petugas PKB memiliki akses pemeriksaan ke SapiTime, Database IB, dan Pasar Hewan
+    base.bitpro.enabled = true;
+    base.bitpro.mode = 'edit';
+    base.bitpro.submenus['sapitime'] = { enabled: true, mode: 'edit' };
+    base.bitpro.submenus['database-ib'] = { enabled: true, mode: 'edit' };
+
+    base.kesmavet.enabled = true;
+    base.kesmavet.mode = 'edit';
+    base.kesmavet.submenus['pasar-hewan'] = { enabled: true, mode: 'edit' };
   } else if (r === 'petugas lapangan') {
-    // Form IB & Keswan
+    // Form IB, Keswan, dan Pasar Hewan
     base.bitpro.enabled = true;
     base.bitpro.mode = 'edit';
     base.bitpro.submenus['sapitime'] = { enabled: true, mode: 'edit' };
@@ -151,6 +163,10 @@ export function getDefaultPermissionsForRole(role: string): UserPermissions {
     base.keswan.submenus['data-vaksinasi'] = { enabled: true, mode: 'edit' };
     base.keswan.submenus['laporan-penyakit'] = { enabled: true, mode: 'edit' };
     base.keswan.submenus['puskeswan'] = { enabled: true, mode: 'edit' };
+
+    base.kesmavet.enabled = true;
+    base.kesmavet.mode = 'edit';
+    base.kesmavet.submenus['pasar-hewan'] = { enabled: true, mode: 'edit' };
   }
 
   return base;

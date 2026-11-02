@@ -118,22 +118,22 @@ export default function KttTableSection({
       <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm overflow-hidden transition-colors">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs sm:text-sm table-fixed md:table-auto">
-            <thead className="bg-slate-50 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300 text-[11px] font-semibold uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
+            <thead className="bg-slate-100 dark:bg-slate-800/90 text-slate-700 dark:text-slate-300 text-[11px] font-bold uppercase tracking-wider border-b border-slate-300 dark:border-slate-700">
               <tr>
-                <th className="pl-3 pr-1 py-2.5 sm:px-3 sm:py-3 w-10 sm:w-12 text-center whitespace-nowrap">NO</th>
-                <th className="px-2 sm:px-3.5 py-2.5 sm:py-3 min-w-0">
+                <th className="pl-3 pr-1 py-2.5 sm:px-3 sm:py-3 w-10 sm:w-12 text-center whitespace-nowrap border-r border-slate-300 dark:border-slate-700">NO</th>
+                <th className="px-2 sm:px-3.5 py-2.5 sm:py-3 min-w-0 border-r border-slate-300 dark:border-slate-700">
                   <span className="md:hidden">Kelompok</span>
                   <span className="hidden md:inline whitespace-nowrap">NAMA KELOMPOK &amp; DOKUMEN</span>
                 </th>
-                <th className="hidden md:table-cell px-3 py-3 whitespace-nowrap">LOKASI DESA / KEC</th>
-                <th className="hidden md:table-cell px-3 py-3 whitespace-nowrap">KETUA KELOMPOK</th>
-                <th className="px-1 sm:px-3 py-2.5 sm:py-3 text-center w-[84px] md:w-auto whitespace-nowrap">KELAS</th>
-                <th className="hidden md:table-cell px-3 py-3 text-right whitespace-nowrap">ANGGOTA</th>
+                <th className="hidden md:table-cell px-3 py-3 whitespace-nowrap border-r border-slate-300 dark:border-slate-700">LOKASI DESA / KEC</th>
+                <th className="hidden md:table-cell px-3 py-3 whitespace-nowrap border-r border-slate-300 dark:border-slate-700">KETUA KELOMPOK</th>
+                <th className="px-1 sm:px-3 py-2.5 sm:py-3 text-center w-[84px] md:w-auto whitespace-nowrap border-r border-slate-300 dark:border-slate-700">KELAS</th>
+                <th className="hidden md:table-cell px-3 py-3 text-right whitespace-nowrap border-r border-slate-300 dark:border-slate-700">ANGGOTA</th>
                 <th className="hidden md:table-cell px-3 py-3 text-center w-24 whitespace-nowrap">AKSI</th>
                 <th className="md:hidden pr-3 pl-1 py-2.5 w-9 text-center" aria-label="Toggle"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-slate-800 dark:text-slate-200">
+            <tbody className="divide-y divide-slate-300 dark:divide-slate-700 text-slate-800 dark:text-slate-200">
               {paginated.length > 0 ? (
                 paginated.map((row, idx) => {
                   const docCount = docCounts[row.id] || 0;
@@ -147,17 +147,19 @@ export default function KttTableSection({
                         onClick={() => setExpandedId(isExpanded ? null : row.id)}
                         className={`transition-colors group cursor-pointer md:cursor-default ${
                           isExpanded
-                            ? 'bg-emerald-50/50 dark:bg-emerald-950/20'
-                            : 'hover:bg-slate-50/80 dark:hover:bg-slate-800/60'
+                            ? 'bg-emerald-50/70 dark:bg-emerald-950/40'
+                            : idx % 2 === 0
+                              ? 'bg-white dark:bg-slate-900/60 hover:bg-blue-50/60 dark:hover:bg-slate-800/60'
+                              : 'bg-slate-100 dark:bg-slate-800/50 hover:bg-blue-50/60 dark:hover:bg-slate-800/70'
                         }`}
                       >
                         {/* 1. NO */}
-                        <td className="pl-3 pr-1 py-3 text-center font-sans text-slate-400 dark:text-slate-500 text-xs font-bold shrink-0">
+                        <td className="pl-3 pr-1 py-3 text-center font-sans text-slate-500 dark:text-slate-400 text-xs font-bold shrink-0 border-r border-slate-300 dark:border-slate-700">
                           {(currentPage - 1) * PAGE_SIZE + idx + 1}
                         </td>
 
                         {/* 2. NAMA KELOMPOK */}
-                        <td className="px-2 sm:px-3.5 py-3 min-w-0 overflow-hidden">
+                        <td className="px-2 sm:px-3.5 py-3 min-w-0 overflow-hidden border-r border-slate-300 dark:border-slate-700">
                           <div className="flex items-center gap-1.5 min-w-0">
                             <span
                               onClick={(e) => {
@@ -172,12 +174,12 @@ export default function KttTableSection({
                               {row.namaKelompok || '-'}
                             </span>
                             {docCount > 0 ? (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 shrink-0">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 shrink-0">
                                 <FolderOpen size={10} />
                                 <span>{docCount}</span>
                               </span>
                             ) : (
-                              <span className="hidden md:inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700 shrink-0">
+                              <span className="hidden md:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700 shrink-0">
                                 0
                               </span>
                             )}
@@ -195,7 +197,7 @@ export default function KttTableSection({
                         </td>
 
                         {/* 3. LOKASI (Desktop) */}
-                        <td className="hidden md:table-cell px-3 py-3 whitespace-nowrap">
+                        <td className="hidden md:table-cell px-3 py-3 whitespace-nowrap border-r border-slate-300 dark:border-slate-700">
                           <span className="text-slate-800 dark:text-slate-200 font-medium block text-xs">
                             {row.desa || '-'}
                           </span>
@@ -205,7 +207,7 @@ export default function KttTableSection({
                         </td>
 
                         {/* 4. KETUA KELOMPOK (Desktop) */}
-                        <td className="hidden md:table-cell px-3 py-3 text-slate-700 dark:text-slate-300 text-xs font-medium whitespace-nowrap">
+                        <td className="hidden md:table-cell px-3 py-3 text-slate-700 dark:text-slate-300 text-xs font-medium whitespace-nowrap border-r border-slate-300 dark:border-slate-700">
                           <span className="flex items-center gap-1.5">
                             <User size={13} className="text-slate-400 shrink-0" />
                             <span>{row.namaKetuaKelompok || '-'}</span>
@@ -213,12 +215,12 @@ export default function KttTableSection({
                         </td>
 
                         {/* 5. KELAS (Mobile & Desktop) */}
-                        <td className="px-2.5 sm:px-3 py-3 text-center whitespace-nowrap">
+                        <td className="px-1.5 sm:px-3 py-3 text-center border-r border-slate-300 dark:border-slate-700 overflow-hidden">
                           <KelasBadge kelas={row.kelasKelompok} />
                         </td>
 
                         {/* 6. ANGGOTA (Desktop) */}
-                        <td className="hidden md:table-cell px-3 py-3 text-right font-sans text-xs whitespace-nowrap">
+                        <td className="hidden md:table-cell px-3 py-3 text-right font-sans text-xs whitespace-nowrap border-r border-slate-300 dark:border-slate-700">
                           <span className="font-bold text-slate-900 dark:text-slate-100">
                             {totalAnggota}
                           </span>
@@ -250,7 +252,7 @@ export default function KttTableSection({
                                   e.stopPropagation();
                                   onShowHistory(row);
                                 }}
-                                className="h-7 w-7 rounded-lg border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-600 flex items-center justify-center transition-colors cursor-pointer"
+                                className="h-7 w-7 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 dark:hover:bg-blue-900 text-blue-600 dark:text-blue-400 flex items-center justify-center transition-colors cursor-pointer"
                                 title="Riwayat & Koreksi"
                               >
                                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-clock"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -353,7 +355,7 @@ export default function KttTableSection({
                                       e.stopPropagation();
                                       onShowHistory(row);
                                     }}
-                                    className="min-h-touch min-w-touch h-8.5 w-8.5 rounded-xl border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-600 flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                                    className="min-h-touch min-w-touch h-8.5 w-8.5 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 dark:hover:bg-blue-900 text-blue-600 dark:text-blue-400 flex items-center justify-center transition-colors cursor-pointer shrink-0"
                                     title="Riwayat & Koreksi"
                                   >
                                     <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-clock"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>

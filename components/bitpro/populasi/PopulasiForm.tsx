@@ -35,6 +35,7 @@ interface PopulasiFormProps {
   getCategoryCount: (catId: string) => number;
   calculateTotal: (prefix: string) => number;
   handleSave: (e: React.FormEvent) => Promise<void>;
+  isSaving?: boolean;
 }
 
 export default function PopulasiForm({
@@ -56,6 +57,7 @@ export default function PopulasiForm({
   getCategoryCount,
   calculateTotal,
   handleSave,
+  isSaving = false,
 }: PopulasiFormProps) {
   const currentIndex = CATEGORIES.findIndex((c) => c.id === activeCategory);
 
@@ -72,31 +74,31 @@ export default function PopulasiForm({
   };
 
   return (
-    <form onSubmit={handleSave} className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-6">
+    <form onSubmit={handleSave} className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 sm:p-8 space-y-6">
       {/* Header Form & Telemetri Realtime */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
         <div>
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 animate-pulse" />
-            <h2 className="font-bold text-base sm:text-lg text-slate-900">
+            <h2 className="font-bold text-base sm:text-lg text-slate-900 dark:text-white">
               {editIdx !== null ? 'Edit Data Populasi Desa ✏️' : 'Formulir Input Data Populasi Per Desa'}
             </h2>
           </div>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Pilih wilayah dan masukkan jumlah ternak per kategori. Total akan dihitung otomatis.
           </p>
         </div>
 
         {/* Realtime Grand Total Card */}
-        <div className="px-4 py-2.5 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center gap-3 shrink-0">
+        <div className="px-4 py-2.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center gap-3 shrink-0">
           <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
             <Calculator size={16} />
           </div>
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 block">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 block">
               Total Ternak Terinput
             </span>
-            <span className="text-lg font-bold text-emerald-900">
+            <span className="text-lg font-bold text-emerald-900 dark:text-emerald-200">
               {grandTotalDesa.toLocaleString('id-ID')} <span className="text-xs font-normal">Ekor</span>
             </span>
           </div>
@@ -104,15 +106,15 @@ export default function PopulasiForm({
       </div>
 
       {/* Wilayah & Triwulan Selector */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 sm:p-5 rounded-2xl bg-slate-50/80 border border-slate-200">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 sm:p-5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
         <div>
-          <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+          <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
             Triwulan (TW)
           </label>
           <select
             value={tw}
             onChange={(e) => setTw(e.target.value)}
-            className="w-full min-h-touch h-11 px-3.5 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-900 focus:border-emerald-500 outline-none shadow-2xs"
+            className="w-full min-h-touch h-11 px-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-semibold text-slate-900 dark:text-slate-100 focus:border-emerald-500 outline-none shadow-2xs"
           >
             <option>TW 1</option>
             <option>TW 2</option>
@@ -122,7 +124,7 @@ export default function PopulasiForm({
         </div>
 
         <div>
-          <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Kecamatan</label>
+          <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">Kecamatan</label>
           <select
             value={kec}
             onChange={(e) => {
@@ -130,7 +132,7 @@ export default function PopulasiForm({
               setDesa('');
             }}
             required
-            className="w-full min-h-touch h-11 px-3.5 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-900 focus:border-emerald-500 outline-none shadow-2xs"
+            className="w-full min-h-touch h-11 px-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-semibold text-slate-900 dark:text-slate-100 focus:border-emerald-500 outline-none shadow-2xs"
           >
             <option value="">-- Pilih Kecamatan --</option>
             {Object.keys(DATA_WILAYAH).map((k) => (
@@ -142,7 +144,7 @@ export default function PopulasiForm({
         </div>
 
         <div>
-          <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+          <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
             Desa / Kelurahan
           </label>
           <select
@@ -150,7 +152,7 @@ export default function PopulasiForm({
             onChange={(e) => setDesa(e.target.value)}
             disabled={!kec}
             required
-            className="w-full min-h-touch h-11 px-3.5 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-900 focus:border-emerald-500 outline-none shadow-2xs disabled:opacity-50"
+            className="w-full min-h-touch h-11 px-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-semibold text-slate-900 dark:text-slate-100 focus:border-emerald-500 outline-none shadow-2xs disabled:opacity-50"
           >
             <option value="">{kec ? '-- Pilih Desa --' : 'Pilih Kecamatan Terlebih Dahulu'}</option>
             {kec &&
@@ -166,7 +168,7 @@ export default function PopulasiForm({
       {/* ── TAB NAVIGASI 5 KATEGORI TERNAK ── */}
       <div className="space-y-4">
         {/* Tab Buttons */}
-        <div className="flex gap-2 border-b border-slate-200 pb-px overflow-x-auto no-scrollbar scroll-smooth -mx-6 px-6 sm:mx-0 sm:px-0">
+        <div className="flex gap-2 border-b border-slate-200 dark:border-slate-800 pb-px overflow-x-auto no-scrollbar scroll-smooth -mx-6 px-6 sm:mx-0 sm:px-0">
           {CATEGORIES.map((cat) => {
             const active = activeCategory === cat.id;
             const filledCount = getCategoryCount(cat.id);
@@ -177,8 +179,8 @@ export default function PopulasiForm({
                 onClick={() => setActiveCategory(cat.id)}
                 className={`min-h-touch h-12 px-4 sm:px-5 rounded-t-2xl text-xs sm:text-sm font-bold border-t border-x transition-all shrink-0 whitespace-nowrap cursor-pointer flex items-center gap-2 ${
                   active
-                    ? 'bg-white border-slate-200 text-emerald-700 border-b-white translate-y-px shadow-xs'
-                    : 'border-transparent text-slate-500 hover:text-slate-900 bg-slate-100/70'
+                    ? 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-emerald-700 dark:text-emerald-400 border-b-white dark:border-b-slate-900 translate-y-px shadow-xs'
+                    : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 bg-slate-100/70 dark:bg-slate-800/70'
                 }`}
               >
                 <span>{cat.icon}</span>
@@ -186,7 +188,7 @@ export default function PopulasiForm({
                 {filledCount > 0 && (
                   <span
                     className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                      active ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'
+                      active ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
                     }`}
                   >
                     {filledCount} Terisi
@@ -368,10 +370,20 @@ export default function PopulasiForm({
           )}
           <button
             type="submit"
-            className="w-full sm:w-auto min-h-touch h-11 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs sm:text-sm font-bold shadow-xs transition-all cursor-pointer flex items-center justify-center gap-2"
+            disabled={isSaving}
+            className="w-full sm:w-auto min-h-touch h-11 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs sm:text-sm font-bold shadow-xs transition-all cursor-pointer flex items-center justify-center gap-2"
           >
-            <CheckCircle2 size={16} />
-            <span>{editIdx !== null ? 'Perbarui Data Desa' : 'Simpan Data Desa'}</span>
+            {isSaving ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <span>Menyimpan Data...</span>
+              </>
+            ) : (
+              <>
+                <CheckCircle2 size={16} />
+                <span>{editIdx !== null ? 'Perbarui Data Desa' : 'Simpan Data Desa'}</span>
+              </>
+            )}
           </button>
         </div>
       </div>

@@ -18,6 +18,7 @@ import {
   Trash2,
   Maximize2,
   X,
+  Loader2,
 } from 'lucide-react';
 import { PuskeswanProfil, DEFAULT_JADWAL_HARIAN } from '@/lib/puskeswanData';
 import { ProfilFormData } from './types';
@@ -372,6 +373,7 @@ interface PuskeswanProfilFormModalProps {
   handlePhotoFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleAddPhotoUrl: () => void;
   handleRemovePhoto: (idx: number) => void;
+  isSaving?: boolean;
 }
 
 export function PuskeswanProfilFormModal({
@@ -384,6 +386,7 @@ export function PuskeswanProfilFormModal({
   handlePhotoFileUpload,
   handleAddPhotoUrl,
   handleRemovePhoto,
+  isSaving = false,
 }: PuskeswanProfilFormModalProps) {
   if (!showProfilModal) return null;
 
@@ -417,7 +420,7 @@ export function PuskeswanProfilFormModal({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                Nama Puskeswan <span className="text-red-500">*</span>
+                Nama Puskeswan
               </label>
               <input
                 type="text"
@@ -431,7 +434,7 @@ export function PuskeswanProfilFormModal({
 
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                Kode Singkatan Puskeswan
+                Kode Singkatan Puskeswan <span className="text-[11px] text-slate-400 font-normal">(opsional)</span>
               </label>
               <input
                 type="text"
@@ -557,7 +560,7 @@ export function PuskeswanProfilFormModal({
 
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">
-              Wilayah Kerja / Kecamatan Binaan <span className="text-red-500">*</span>
+              Wilayah Kerja / Kecamatan Binaan
             </label>
             <input
               type="text"
@@ -571,7 +574,7 @@ export function PuskeswanProfilFormModal({
 
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">
-              Alamat Lengkap <span className="text-red-500">*</span>
+              Alamat Lengkap
             </label>
             <textarea
               required
@@ -585,7 +588,7 @@ export function PuskeswanProfilFormModal({
 
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">
-              Link Google Maps (Opsional / Otomatis Dibuat)
+              Link Google Maps <span className="text-[11px] text-slate-400 font-normal">(opsional)</span>
             </label>
             <input
               type="url"
@@ -599,7 +602,7 @@ export function PuskeswanProfilFormModal({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                Dokter Hewan / Kepala
+                Dokter Hewan / Kepala <span className="text-[11px] text-slate-400 font-normal">(opsional)</span>
               </label>
               <input
                 type="text"
@@ -612,7 +615,7 @@ export function PuskeswanProfilFormModal({
 
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                Nomor Telepon / WhatsApp
+                Nomor Telepon / WhatsApp <span className="text-[11px] text-slate-400 font-normal">(opsional)</span>
               </label>
               <input
                 type="text"
@@ -627,7 +630,7 @@ export function PuskeswanProfilFormModal({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                Daftar Layanan (1 baris per layanan)
+                Daftar Layanan (1 baris per layanan) <span className="text-[11px] text-slate-400 font-normal">(opsional)</span>
               </label>
               <textarea
                 rows={3}
@@ -640,7 +643,7 @@ export function PuskeswanProfilFormModal({
 
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                Daftar Fasilitas (1 baris per fasilitas)
+                Daftar Fasilitas (1 baris per fasilitas) <span className="text-[11px] text-slate-400 font-normal">(opsional)</span>
               </label>
               <textarea
                 rows={3}
@@ -654,7 +657,7 @@ export function PuskeswanProfilFormModal({
 
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">
-              Keterangan / Catatan Tambahan
+              Keterangan / Catatan Tambahan <span className="text-[11px] text-slate-400 font-normal">(opsional)</span>
             </label>
             <input
               type="text"
@@ -675,9 +678,11 @@ export function PuskeswanProfilFormModal({
             </button>
             <button
               type="submit"
-              className="flex-1 min-h-touch h-11 px-6 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold shadow-xs transition-all cursor-pointer"
+              disabled={isSaving}
+              className="flex-1 min-h-touch h-11 px-6 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs sm:text-sm font-bold shadow-xs transition-all cursor-pointer flex items-center justify-center gap-2"
             >
-              Simpan Data Profil &amp; Foto
+              {isSaving && <Loader2 size={16} className="animate-spin" />}
+              <span>{isSaving ? 'Menyimpan...' : 'Simpan Data Profil & Foto'}</span>
             </button>
           </div>
         </form>

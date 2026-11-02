@@ -40,17 +40,19 @@ export async function GET(req: Request) {
     await ensureTable();
     const { searchParams } = new URL(req.url);
     const action = searchParams.get('action');
-    const tahun = Number(searchParams.get('tahun')) || 2025;
+    const currentYear = new Date().getFullYear();
+    const tahun = Number(searchParams.get('tahun')) || currentYear;
 
-    // Return list of available years
+    // Return list of available years (Otomatis Tahun Berjalan)
     if (action === 'years') {
       const [yearRows]: any = await pool.execute(
         `SELECT DISTINCT tahun FROM kesmavet_kapasitas_pakan ORDER BY tahun DESC`
       );
       let years = yearRows ? yearRows.map((r: any) => Number(r.tahun)).filter(Boolean) : [];
-      if (!years.includes(2025)) years.push(2025);
-      if (!years.includes(2024)) years.push(2024);
-      years.sort((a: number, b: number) => b - a);
+      if (!years.includes(currentYear + 1)) years.push(currentYear + 1);
+      if (!years.includes(currentYear)) years.push(currentYear);
+      if (!years.includes(currentYear - 1)) years.push(currentYear - 1);
+      years = Array.from(new Set<number>(years)).sort((a: number, b: number) => b - a);
       return NextResponse.json({ success: true, years });
     }
 

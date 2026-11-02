@@ -10,6 +10,8 @@ import {
   RefreshCw,
   Plus,
   Calendar,
+  FileSpreadsheet,
+  Layers,
 } from 'lucide-react';
 import { KECAMATAN_ITEMS } from '@/lib/sklbPetaData';
 import {
@@ -23,26 +25,27 @@ import { SklbRekapTab } from '@/components/bitpro/sklb/SklbRekapTab';
 import { SklbDetailTab } from '@/components/bitpro/sklb/SklbDetailTab';
 import {
   ModalSapiPO,
-  ModalAddYear,
   ModalRekap,
   ModalDetail,
+  ModalEditTotalSapiPO,
 } from '@/components/bitpro/sklb/SklbModals';
 import { UniversalAuditModal } from '@/components/common/UniversalAuditModal';
+import { showToast, showConfirm } from '@/components/common/CustomToast';
 
 export default function UnifiedSKLBPage() {
   const { isReady, canCreate, canEdit } = usePageAuth('bitpro', 'sklb');
 
   // ── SAPI PO PETA & MULTI-YEAR STATE ──
-  const [selectedYear, setSelectedYear] = useState<number>(2026);
-  const [availableYears, setAvailableYears] = useState<number[]>([2025, 2026]);
-  const [showAddYearModal, setShowAddYearModal] = useState<boolean>(false);
-  const [newYearInput, setNewYearInput] = useState<number>(2027);
-  const [isAddingYear, setIsAddingYear] = useState<boolean>(false);
+  const currentYear = new Date().getFullYear();
+  const [selectedYear, setSelectedYear] = useState<number>(currentYear);
+  const [availableYears, setAvailableYears] = useState<number[]>([2027, 2026, 2025, 2024]);
 
   const [sapiPOData, setSapiPOData] = useState<any[]>([]);
   const [sapiPOKecMap, setSapiPOKecMap] = useState<Record<string, number>>({});
-  const [totalSapiPO, setTotalSapiPO] = useState<number>(50450);
+  const [totalSapiPO, setTotalSapiPO] = useState<number>(0);
+  const [calculatedSum, setCalculatedSum] = useState<number>(0);
   const [triwulanText, setTriwulanText] = useState<string>('Triwulan 2');
+  const [showEditTotalModal, setShowEditTotalModal] = useState<boolean>(false);
   const [isLoadingSapiPO, setIsLoadingSapiPO] = useState<boolean>(true);
 
   const [selectedKecamatan, setSelectedKecamatan] = useState<any | null>(null);
@@ -88,11 +91,19 @@ export default function UnifiedSKLBPage() {
     mode: 'tambah',
     data: null,
   });
+  const [isSavingRekap, setIsSavingRekap] = useState(false);
+  const [isSavingDetail, setIsSavingDetail] = useState(false);
 
   // ── LOAD AVAILABLE YEARS ──
   const loadAvailableYears = async () => {
     try {
-      const res = await fetch('/api/sklb-sapi-po?action=years');
+      const res = await fetch(`/api/sklb-sapi-po?action=years&_t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          Pragma: 'no-cache',
+        },
+      });
       const json = await res.json();
       if (json.success && Array.isArray(json.years)) {
         setAvailableYears(json.years);
@@ -106,16 +117,32 @@ export default function UnifiedSKLBPage() {
   const loadSapiPOData = async (year: number) => {
     try {
       setIsLoadingSapiPO(true);
-      const res = await fetch(`/api/sklb-sapi-po?tahun=${year}`);
+      const res = await fetch(`/api/sklb-sapi-po?tahun=${year}&_t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          Pragma: 'no-cache',
+        },
+      });
       const json = await res.json();
       if (json.success) {
         setSapiPOData(rezaProcessSklbData(json.data || []));
         setSapiPOKecMap(json.kecMap || {});
-        setTotalSapiPO(json.totalPopulasi || 0);
+        setTotalSapiPO(json.totalPopulasi ?? 0);
+        setCalculatedSum(json.calculatedSum ?? 0);
         if (json.triwulan) setTriwulanText(json.triwulan);
+      } else {
+        setSapiPOData([]);
+        setSapiPOKecMap({});
+        setTotalSapiPO(0);
+        setCalculatedSum(0);
       }
     } catch (err) {
       console.error('Gagal memuat data populasi Sapi PO:', err);
+      setSapiPOData([]);
+      setSapiPOKecMap({});
+      setTotalSapiPO(0);
+      setCalculatedSum(0);
     } finally {
       setIsLoadingSapiPO(false);
     }
@@ -151,36 +178,6 @@ export default function UnifiedSKLBPage() {
     loadTablesData(selectedYear);
   }, [selectedYear]);
 
-  // ── TAMBAH TAHUN BARU HANDLER ──
-  const handleAddYearSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newYearInput || newYearInput < 2000) {
-      alert('Masukkan tahun yang valid');
-      return;
-    }
-
-    try {
-      setIsAddingYear(true);
-      const res = await fetch('/api/sklb-sapi-po', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'add_year', tahun: newYearInput }),
-      });
-      const json = await res.json();
-      if (json.success) {
-        await loadAvailableYears();
-        setSelectedYear(newYearInput);
-        setShowAddYearModal(false);
-        alert(`Periode Tahun ${newYearInput} berhasil ditambahkan!`);
-      } else {
-        alert(json.error || 'Gagal menambahkan tahun baru');
-      }
-    } catch (err: any) {
-      alert('Terjadi kesalahan: ' + err.message);
-    } finally {
-      setIsAddingYear(false);
-    }
-  };
 
   // ── SAVE POPULASI SAPI PO HANDLER ──
   const handleSaveSapiPO = async (e: React.FormEvent) => {
@@ -327,6 +324,7 @@ export default function UnifiedSKLBPage() {
   // ── REKAP CRUD HANDLERS ──
   const handleSaveRekap = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSavingRekap) return;
     if (modalRekap.mode === 'edit' && !canEdit) {
       alert('Hanya Administrator yang berhak mengedit data rekapitulasi.');
       return;
@@ -336,6 +334,7 @@ export default function UnifiedSKLBPage() {
       return;
     }
     const formData = { ...modalRekap.data, tahun: selectedYear };
+    setIsSavingRekap(true);
     try {
       if (modalRekap.mode === 'tambah') {
         const res = await fetch('/api/sync-sklb-summary', {
@@ -366,42 +365,54 @@ export default function UnifiedSKLBPage() {
       }
     } catch {
       alert('Terjadi kesalahan saat menyimpan ke database.');
+    } finally {
+      setIsSavingRekap(false);
     }
     setModalRekap({ open: false, mode: 'tambah', data: null });
   };
 
   const handleDeleteRekap = async (id: number) => {
     if (!canEdit) {
-      alert('Hanya Administrator yang berhak menghapus data rekapitulasi.');
+      showToast.error('Hanya Administrator yang berhak menghapus data rekapitulasi.');
       return;
     }
-    if (confirm('Hapus data rekap ini dari database?')) {
-      try {
-        const res = await fetch(`/api/sync-sklb-summary?id=${id}`, { method: 'DELETE' });
-        const json = await res.json();
-        if (json.success) {
-          setDataRekap((prev) => prev.filter((d) => d.id !== id));
-        } else {
-          alert('Gagal menghapus: ' + json.error);
-        }
-      } catch {
-        alert('Terjadi kesalahan saat menghapus data.');
+    const ok = await showConfirm({
+      title: 'Hapus Data Rekapitulasi',
+      message: 'Hapus data rekap ini dari database?',
+      confirmText: 'Ya, Hapus',
+      cancelText: 'Batal',
+      type: 'danger',
+    });
+    if (!ok) return;
+
+    try {
+      const res = await fetch(`/api/sync-sklb-summary?id=${id}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (json.success) {
+        setDataRekap((prev) => prev.filter((d) => d.id !== id));
+        showToast.success('Data rekapitulasi berhasil dihapus.');
+      } else {
+        showToast.error('Gagal menghapus: ' + json.error);
       }
+    } catch {
+      showToast.error('Terjadi kesalahan saat menghapus data.');
     }
   };
 
   // ── DETAIL CRUD HANDLERS ──
   const handleSaveDetail = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSavingDetail) return;
     if (modalDetail.mode === 'edit' && !canEdit) {
-      alert('Hanya Administrator yang berhak mengedit data detail ternak.');
+      showToast.error('Hanya Administrator yang berhak mengedit data detail ternak.');
       return;
     }
     if (modalDetail.mode === 'tambah' && !canCreate) {
-      alert('Anda tidak memiliki izin untuk menambah data.');
+      showToast.error('Anda tidak memiliki izin untuk menambah data.');
       return;
     }
     const formData = { ...modalDetail.data, tahun: selectedYear };
+    setIsSavingDetail(true);
     try {
       if (modalDetail.mode === 'tambah') {
         const res = await fetch('/api/sync-sklb-detail', {
@@ -411,10 +422,10 @@ export default function UnifiedSKLBPage() {
         });
         const json = await res.json();
         if (json.success) {
-          alert('Data sapi berhasil disimpan ke database!');
+          showToast.success('Data sapi berhasil disimpan ke database!');
           loadTablesData(selectedYear);
         } else {
-          alert('Gagal menyimpan: ' + json.error);
+          showToast.error('Gagal menyimpan: ' + json.error);
         }
       } else {
         const res = await fetch('/api/sync-sklb-detail', {
@@ -424,35 +435,45 @@ export default function UnifiedSKLBPage() {
         });
         const json = await res.json();
         if (json.success) {
-          alert('Data sapi berhasil diperbarui di database!');
+          showToast.success('Data sapi berhasil diperbarui di database!');
           loadTablesData(selectedYear);
         } else {
-          alert('Gagal memperbarui: ' + json.error);
+          showToast.error('Gagal memperbarui: ' + json.error);
         }
       }
     } catch {
-      alert('Terjadi kesalahan saat menyimpan ke database.');
+      showToast.error('Terjadi kesalahan saat menyimpan ke database.');
+    } finally {
+      setIsSavingDetail(false);
     }
     setModalDetail({ open: false, mode: 'tambah', data: null });
   };
 
   const handleDeleteDetail = async (id: any) => {
     if (!canEdit) {
-      alert('Hanya Administrator yang berhak menghapus data sapi.');
+      showToast.error('Hanya Administrator yang berhak menghapus data sapi.');
       return;
     }
-    if (confirm('Hapus data sapi ini dari database?')) {
-      try {
-        const res = await fetch(`/api/sync-sklb-detail?id=${id}`, { method: 'DELETE' });
-        const json = await res.json();
-        if (json.success) {
-          setDataDetail((prev) => prev.filter((d) => d.id !== id));
-        } else {
-          alert('Gagal menghapus: ' + json.error);
-        }
-      } catch {
-        alert('Terjadi kesalahan saat menghapus data.');
+    const ok = await showConfirm({
+      title: 'Hapus Data Sapi',
+      message: 'Hapus data sapi ini dari database?',
+      confirmText: 'Ya, Hapus',
+      cancelText: 'Batal',
+      type: 'danger',
+    });
+    if (!ok) return;
+
+    try {
+      const res = await fetch(`/api/sync-sklb-detail?id=${id}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (json.success) {
+        setDataDetail((prev) => prev.filter((d) => d.id !== id));
+        showToast.success('Data sapi berhasil dihapus.');
+      } else {
+        showToast.error('Gagal menghapus: ' + json.error);
       }
+    } catch {
+      showToast.error('Terjadi kesalahan saat menghapus data.');
     }
   };
 
@@ -477,10 +498,10 @@ export default function UnifiedSKLBPage() {
   if (!isReady) return null;
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-emerald-600 selection:text-white pb-24">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans selection:bg-emerald-600 selection:text-white pb-24">
       
       {/* ── TOP HEADER (Tema Hijau Bitpro) ── */}
-      <header className="border-b border-emerald-100 bg-white/95 backdrop-blur-md sticky top-0 z-30 shadow-xs print:hidden">
+      <header className="border-b border-emerald-100 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md sticky top-0 z-30 shadow-xs print:hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 min-h-[80px] sm:min-h-[88px] flex flex-col md:flex-row md:items-center justify-between gap-4">
           
           <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -494,13 +515,13 @@ export default function UnifiedSKLBPage() {
 
             <div className="min-w-0">
               <div className="flex items-center gap-2 mb-0.5">
-                <Link href="/bitpro" className="text-xs font-semibold text-slate-500 hover:text-emerald-700 transition-colors truncate">
+                <Link href="/bitpro" className="text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors truncate">
                   Bitpro
                 </Link>
-                <span className="text-slate-300">/</span>
-                <span className="text-xs font-bold text-emerald-700 whitespace-nowrap">Surat Keterangan Layak Bibit (SKLB)</span>
+                <span className="text-slate-300 dark:text-slate-600">/</span>
+                <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">Surat Keterangan Layak Bibit (SKLB)</span>
               </div>
-              <h1 className="text-base sm:text-xl font-extrabold text-slate-900 tracking-tight leading-tight truncate">
+              <h1 className="text-base sm:text-xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight truncate">
                 Surat Keterangan Layak Bibit (SKLB)
               </h1>
             </div>
@@ -529,7 +550,7 @@ export default function UnifiedSKLBPage() {
 
             <button
               onClick={handleExportExcel}
-              className="h-10 px-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+              className="h-10 px-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
             >
               <Download size={15} />
               <span>Export Excel</span>
@@ -543,34 +564,21 @@ export default function UnifiedSKLBPage() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
         
         {/* Opsi Pilihan Tahun */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 bg-white p-3.5 rounded-2xl border border-emerald-200 shadow-xs max-w-xl mx-auto">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-emerald-200 bg-emerald-50/70">
-            <Calendar className="text-emerald-700" size={16} />
-            <span className="text-xs font-bold text-emerald-900">Pilih Tahun:</span>
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-emerald-200 dark:border-emerald-800 shadow-xs max-w-xl mx-auto">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/40">
+            <Calendar className="text-emerald-700 dark:text-emerald-400" size={16} />
+            <span className="text-xs font-bold text-emerald-900 dark:text-emerald-300">Pilih Tahun:</span>
             <select
               value={selectedYear}
               onChange={(e) => setSelectedYear(Number(e.target.value))}
-              className="bg-transparent text-xs font-black text-emerald-900 focus:outline-none cursor-pointer"
+              className="bg-transparent text-xs font-black text-emerald-900 dark:text-emerald-300 dark:bg-slate-900 focus:outline-none cursor-pointer"
             >
               {availableYears.map((yr) => (
-                <option key={yr} value={yr}>Tahun {yr}</option>
+                <option key={yr} value={yr} className="dark:bg-slate-900">Tahun {yr}</option>
               ))}
             </select>
           </div>
 
-          {canEdit && (
-            <button
-              onClick={() => {
-                const maxYear = Math.max(...availableYears, 2026);
-                setNewYearInput(maxYear + 1);
-                setShowAddYearModal(true);
-              }}
-              className="h-9 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
-            >
-              <Plus size={14} />
-              <span>Tambah Tahun Baru</span>
-            </button>
-          )}
         </div>
 
         {/* 1. PETA SEBARAN POPULASI SAPI PO */}
@@ -585,6 +593,8 @@ export default function UnifiedSKLBPage() {
           setHoveredKecamatan={setHoveredKecamatan}
           canEdit={canEdit}
           topKecamatan={topKecamatan}
+          isLoading={isLoadingSapiPO}
+          onOpenEditTotalSapiPO={() => setShowEditTotalModal(true)}
           onOpenEditSapiPO={(kec) => {
             const cleanId = kec.id.toLowerCase().replace('k_', '');
             setFormSapiPO({
@@ -604,20 +614,20 @@ export default function UnifiedSKLBPage() {
 
         {/* 2. TABEL CAPAIAN SKLB & DETAIL TERNAK */}
         <section className="space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
             <div>
-              <h3 className="text-base sm:text-lg font-black text-slate-900">Tabel Capaian &amp; Database SKLB {selectedYear}</h3>
-              <p className="text-xs text-slate-500">Rekapitulasi jadwal lapangan dan daftar ternak layak bibit</p>
+              <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">Tabel Capaian &amp; Database SKLB {selectedYear}</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Rekapitulasi jadwal lapangan dan daftar ternak layak bibit</p>
             </div>
 
             {/* Sync Buttons */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 self-start sm:self-auto w-full sm:w-auto">
               {activeTab === 'rekap' ? (
                 <button
                   onClick={handleSyncRekap}
                   disabled={isSyncingRekap}
                   title="Tarik Data Rekap"
-                  className="h-9 px-4 bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 hover:bg-emerald-800 disabled:opacity-50 transition-all shadow-xs cursor-pointer"
+                  className="h-9 px-4 rounded-xl bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-emerald-800 disabled:opacity-50 transition-all shadow-xs cursor-pointer w-full sm:w-auto"
                 >
                   <RefreshCw size={13} className={isSyncingRekap ? 'animate-spin' : ''} />
                   <span>{isSyncingRekap ? 'Menyinkronkan...' : 'Tarik Data Rekap'}</span>
@@ -627,7 +637,7 @@ export default function UnifiedSKLBPage() {
                   onClick={handleSyncDetail}
                   disabled={isSyncingDetail}
                   title="Tarik Data Detail"
-                  className="h-9 px-4 bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 hover:bg-emerald-800 disabled:opacity-50 transition-all shadow-xs cursor-pointer"
+                  className="h-9 px-4 rounded-xl bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-emerald-800 disabled:opacity-50 transition-all shadow-xs cursor-pointer w-full sm:w-auto"
                 >
                   <RefreshCw size={13} className={isSyncingDetail ? 'animate-spin' : ''} />
                   <span>{isSyncingDetail ? 'Menyinkronkan Data...' : 'Tarik Data Detail'}</span>
@@ -636,24 +646,26 @@ export default function UnifiedSKLBPage() {
             </div>
           </div>
 
-          {/* Navigation Tabs */}
-          <div className="flex gap-1 border-b-2 border-slate-300 pb-px overflow-x-auto">
+          {/* Navigation Tabs (Folder Tab Model Monev KTT) */}
+          <div className="flex gap-2 border-b border-slate-200 dark:border-slate-800 pb-px overflow-x-auto no-scrollbar scroll-smooth -mx-4 px-4 sm:mx-0 sm:px-0">
             {[
-              { key: 'rekap', label: `Rekapitulasi Capaian Tim (${dataRekap.length})` },
-              { key: 'detail', label: `Master Detail Ternak (${dataDetail.length})` },
+              { key: 'rekap', label: `Rekapitulasi Capaian Tim (${dataRekap.length})`, icon: FileSpreadsheet },
+              { key: 'detail', label: `Master Detail Ternak (${dataDetail.length})`, icon: Layers },
             ].map((tab) => {
+              const Icon = tab.icon;
               const active = activeTab === tab.key;
               return (
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key as any)}
-                  className={`min-h-touch h-10 px-5 text-xs sm:text-sm font-extrabold border-t-2 border-x-2 transition-all shrink-0 whitespace-nowrap cursor-pointer ${
+                  className={`min-h-touch h-11 px-4 sm:px-6 rounded-t-xl text-xs sm:text-sm font-bold flex items-center gap-2 border-t border-x transition-all shrink-0 whitespace-nowrap cursor-pointer ${
                     active
-                      ? 'bg-white border-slate-300 text-emerald-800 border-b-white translate-y-0.5'
-                      : 'border-transparent text-slate-600 hover:text-slate-900 bg-slate-100'
+                      ? 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-emerald-700 dark:text-emerald-400 border-b-white dark:border-b-slate-900 translate-y-px shadow-xs'
+                      : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 bg-slate-100/60 dark:bg-slate-800/60'
                   }`}
                 >
-                  {tab.label}
+                  <Icon size={16} strokeWidth={2.5} />
+                  <span>{tab.label}</span>
                 </button>
               );
             })}
@@ -692,6 +704,17 @@ export default function UnifiedSKLBPage() {
 
       </main>
 
+      {/* MODAL: EDIT TOTAL POPULASI & TRIWULAN SAPI PO */}
+      <ModalEditTotalSapiPO
+        open={showEditTotalModal}
+        onClose={() => setShowEditTotalModal(false)}
+        selectedYear={selectedYear}
+        currentTotal={totalSapiPO}
+        calculatedSum={calculatedSum}
+        currentTriwulan={triwulanText}
+        onSuccess={() => loadSapiPOData(selectedYear)}
+      />
+
       {/* MODAL: INPUT / EDIT POPULASI SAPI PO PER KECAMATAN */}
       <ModalSapiPO
         modalSapiPO={modalSapiPO}
@@ -704,21 +727,13 @@ export default function UnifiedSKLBPage() {
         handleSaveSapiPO={handleSaveSapiPO}
       />
 
-      {/* MODAL: TAMBAH TAHUN BARU */}
-      <ModalAddYear
-        showAddYearModal={showAddYearModal}
-        setShowAddYearModal={setShowAddYearModal}
-        newYearInput={newYearInput}
-        setNewYearInput={setNewYearInput}
-        isAddingYear={isAddingYear}
-        handleAddYearSubmit={handleAddYearSubmit}
-      />
 
       {/* MODAL: REKAP TIM */}
       <ModalRekap
         modalRekap={modalRekap}
         setModalRekap={setModalRekap}
         handleSaveRekap={handleSaveRekap}
+        isSaving={isSavingRekap}
       />
 
       {/* MODAL: DETAIL SAPI */}
@@ -726,6 +741,7 @@ export default function UnifiedSKLBPage() {
         modalDetail={modalDetail}
         setModalDetail={setModalDetail}
         handleSaveDetail={handleSaveDetail}
+        isSaving={isSavingDetail}
       />
 
       <UniversalAuditModal

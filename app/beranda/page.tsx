@@ -65,6 +65,7 @@ export default function BerandaPage() {
   // Active view state: null = Overview Dashboard, or SubmenuItem for in-page iframe
   const [activeSubmenu, setActiveSubmenu] = useState<SubmenuItem | null>(null);
   const [isIframeLoading, setIsIframeLoading] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Responsive sidebar drawer state
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -248,6 +249,7 @@ export default function BerandaPage() {
     }
 
     setIsIframeLoading(true);
+    setRefreshKey(0);
     setActiveSubmenu({
       ...sub,
       moduleName: moduleGroup.name,
@@ -316,29 +318,30 @@ export default function BerandaPage() {
         if (iframe && iframe.contentDocument) {
           const doc = iframe.contentDocument;
           if (
-            doc.readyState === 'complete' ||
-            (doc.readyState === 'interactive' && doc.body && doc.body.children.length > 0)
+            doc.location.href !== 'about:blank' &&
+            (doc.readyState === 'complete' ||
+              (doc.readyState === 'interactive' && doc.body && doc.body.children.length > 0))
           ) {
             handleIframeLoad();
           }
         }
       } catch {}
-    }, 250);
+    }, 300);
 
     const timeout = setTimeout(() => {
       handleIframeLoad();
-    }, 2500);
+    }, 3000);
 
     return () => {
       clearInterval(interval);
       clearTimeout(timeout);
     };
-  }, [isIframeLoading, activeSubmenu?.id]);
+  }, [isIframeLoading, activeSubmenu?.id, refreshKey]);
 
   const handleRefreshIframe = () => {
-    if (iframeRef.current && activeSubmenu) {
+    if (activeSubmenu) {
       setIsIframeLoading(true);
-      iframeRef.current.src = activeSubmenu.href;
+      setRefreshKey((prev) => prev + 1);
     }
   };
 
@@ -407,6 +410,7 @@ export default function BerandaPage() {
             activeSubmenu={activeSubmenu}
             isIframeLoading={isIframeLoading}
             onIframeLoad={handleIframeLoad}
+            refreshKey={refreshKey}
           />
         ) : (
           <DashboardOverview

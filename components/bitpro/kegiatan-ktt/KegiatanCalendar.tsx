@@ -34,16 +34,13 @@ export function KegiatanCalendar({
   filteredCount,
 }: KegiatanCalendarProps) {
   return (
-    <section className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-7 space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+    <section className="bg-white rounded-3xl border border-slate-300 shadow-sm p-4 sm:p-7 space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
         <div>
           <h3 className="text-base sm:text-lg font-extrabold text-slate-900 flex items-center gap-2">
             <CalendarIcon size={20} strokeWidth={2.5} className="text-emerald-600" />
             <span>Kalender Agenda &amp; Aktivitas Pembinaan Lapangan</span>
           </h3>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Klik tanggal bertanda titik hijau untuk melihat dan memfilter log kegiatan lapangan pada hari tersebut
-          </p>
         </div>
 
         {/* Navigasi Bulan */}

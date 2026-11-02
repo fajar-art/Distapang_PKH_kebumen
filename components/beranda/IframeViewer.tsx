@@ -9,10 +9,11 @@ interface IframeViewerProps {
   activeSubmenu: SubmenuItem;
   isIframeLoading: boolean;
   onIframeLoad: () => void;
+  refreshKey?: number;
 }
 
 const IframeViewer = forwardRef<HTMLIFrameElement, IframeViewerProps>(
-  ({ isDark, activeSubmenu, isIframeLoading, onIframeLoad }, ref) => {
+  ({ isDark, activeSubmenu, isIframeLoading, onIframeLoad, refreshKey = 0 }, ref) => {
     return (
       <div className="flex-1 flex flex-col relative w-full h-[calc(100vh-3.5rem)] overflow-hidden">
         {/* Modern Skeleton loading overlay for iframe */}
@@ -25,8 +26,9 @@ const IframeViewer = forwardRef<HTMLIFrameElement, IframeViewerProps>(
           </div>
         )}
 
-        {/* Seamless Embedded View */}
+        {/* Seamless Embedded View with dynamic key to ensure clean mount on route change */}
         <iframe
+          key={`${activeSubmenu.id}-${refreshKey}`}
           ref={ref}
           src={activeSubmenu.href}
           onLoad={onIframeLoad}

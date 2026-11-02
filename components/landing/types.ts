@@ -22,22 +22,6 @@ export const PALETTE_UNGGAS = [
   { bg: 'bg-pink-500', gradient: 'from-pink-500 to-pink-600', text: 'text-pink-600', border: 'border-pink-200', light: 'bg-pink-50' },
 ];
 
-export const PALETTE_DAGING = [
-  { bg: 'bg-rose-600', gradient: 'from-rose-500 to-rose-600', text: 'text-rose-600', border: 'border-rose-200', light: 'bg-rose-50' },
-  { bg: 'bg-red-500', gradient: 'from-red-500 to-red-600', text: 'text-red-600', border: 'border-red-200', light: 'bg-red-50' },
-  { bg: 'bg-orange-500', gradient: 'from-orange-500 to-orange-600', text: 'text-orange-600', border: 'border-orange-200', light: 'bg-orange-50' },
-  { bg: 'bg-amber-500', gradient: 'from-amber-500 to-amber-600', text: 'text-amber-600', border: 'border-amber-200', light: 'bg-amber-50' },
-  { bg: 'bg-emerald-500', gradient: 'from-emerald-500 to-emerald-600', text: 'text-emerald-600', border: 'border-emerald-200', light: 'bg-emerald-50' },
-  { bg: 'bg-sky-500', gradient: 'from-sky-500 to-sky-600', text: 'text-sky-600', border: 'border-sky-200', light: 'bg-sky-50' },
-];
-
-export const PALETTE_TELUR = [
-  { bg: 'bg-amber-500', gradient: 'from-amber-500 to-amber-600', text: 'text-amber-600', border: 'border-amber-200', light: 'bg-amber-50' },
-  { bg: 'bg-yellow-500', gradient: 'from-yellow-500 to-yellow-600', text: 'text-yellow-600', border: 'border-yellow-200', light: 'bg-yellow-50' },
-  { bg: 'bg-emerald-500', gradient: 'from-emerald-500 to-emerald-600', text: 'text-emerald-600', border: 'border-emerald-200', light: 'bg-emerald-50' },
-  { bg: 'bg-indigo-500', gradient: 'from-indigo-500 to-indigo-600', text: 'text-indigo-600', border: 'border-indigo-200', light: 'bg-indigo-50' },
-  { bg: 'bg-violet-500', gradient: 'from-violet-500 to-violet-600', text: 'text-violet-600', border: 'border-violet-200', light: 'bg-violet-50' },
-];
 
 export const MODULES = [
   {

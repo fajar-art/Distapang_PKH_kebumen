@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getSessionFromRequest, requireAdmin } from '@/lib/session';
 import { logActivity } from '@/lib/auditLog';
+import { sendNotificationToRole } from '@/lib/webPush';
 
 export const dynamic = 'force-dynamic';
 
@@ -100,6 +101,15 @@ export async function POST(request: NextRequest) {
       userName: session.nama || session.nip_username,
       details: { reason, proposed_changes },
     });
+
+    // Kirim notifikasi realtime & push ke Administrator
+    sendNotificationToRole('Administrator', {
+      title: 'Permohonan Revisi Data Baru',
+      body: `Petugas ${session.nama || session.nip_username} mengajukan koreksi pada modul ${module} (${submenu}).`,
+      url: '/admin/pusat-koreksi',
+      type: 'koreksi',
+      data: { module, submenu, record_id },
+    }).catch((err) => console.error('Gagal kirim notifikasi koreksi:', err));
 
     return NextResponse.json({ success: true, message: 'Pengajuan perbaikan berhasil dikirim ke Admin' });
   } catch (error: any) {

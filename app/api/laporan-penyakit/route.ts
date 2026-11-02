@@ -3,6 +3,7 @@ import pool from '@/lib/db';
 import { getSessionFromRequest } from '@/lib/session';
 import { logActivity } from '@/lib/auditLog';
 import { getZoneByKecamatanId, DIAGNOSA_LIST } from '@/lib/penyakitData';
+import { repairMismatchedCases } from '@/lib/penyakitSync';
 
 export const dynamic = 'force-dynamic';
 
@@ -132,6 +133,11 @@ async function ensureTables() {
     try {
       await pool.execute('DELETE FROM keswan_laporan_penyakit WHERE jumlah_kasus <= 0');
     } catch {}
+
+    // Sinkronkan kasus lama yang belum memiliki kecamatan_id sesuai alamat
+    try {
+      await repairMismatchedCases();
+    } catch {}
   } catch (e: any) {
     console.warn('Gagal ensureTables di laporan-penyakit:', e.message);
   }
@@ -144,23 +150,26 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const action = searchParams.get('action');
 
-    // 1. Ambil daftar tahun unik
+    const currentYear = new Date().getFullYear();
+
+    // 1. Ambil daftar tahun unik (Otomatis Tahun Berjalan)
     if (action === 'years') {
       try {
         const [yearRows]: any = await pool.query(
-          `SELECT DISTINCT tahun FROM keswan_laporan_penyakit WHERE (jumlah_kasus > 0 OR jumlah_kasus IS NULL) ORDER BY 1 ASC`
+          `SELECT DISTINCT tahun FROM keswan_laporan_penyakit WHERE (jumlah_kasus > 0 OR jumlah_kasus IS NULL) ORDER BY 1 DESC`
         );
         let years: number[] = yearRows ? yearRows.map((r: any) => Number(r.tahun)).filter(Boolean) : [];
-        if (!years.includes(2025)) years.push(2025);
-        if (!years.includes(2026)) years.push(2026);
-        years = Array.from(new Set<number>(years)).sort((a, b) => a - b);
+        if (!years.includes(currentYear - 1)) years.push(currentYear - 1);
+        if (!years.includes(currentYear)) years.push(currentYear);
+        if (!years.includes(currentYear + 1)) years.push(currentYear + 1);
+        years = Array.from(new Set<number>(years)).sort((a, b) => b - a);
         return NextResponse.json({ success: true, years });
       } catch {
-        return NextResponse.json({ success: true, years: [2025, 2026] });
+        return NextResponse.json({ success: true, years: [currentYear + 1, currentYear, currentYear - 1] });
       }
     }
 
-    const tahun = Number(searchParams.get('tahun')) || 2026;
+    const tahun = Number(searchParams.get('tahun')) || currentYear;
 
     // 2. Ambil seluruh data kasus pada tahun tersebut secara adaptif (hanya yang jumlah kasus > 0)
     let rawRows: any[] = [];
@@ -340,6 +349,29 @@ export async function POST(req: Request) {
     const kecCode = `k_${cleanKec.toLowerCase()}`;
     const kecIdNum = KECAMATAN_CODE_TO_ID[kecCode] || 1;
     const idPuskeswan = PUSKESWAN_ID_MAP[(puskeswan_id || '').toLowerCase()] || 7;
+
+    // Anti-duplikasi: Cek apakah laporan kasus serupa baru saja ditambahkan dalam 1 menit terakhir
+    try {
+      const [existing]: any = await pool.query(
+        hasDiagNama && hasKecId 
+          ? `SELECT id FROM keswan_laporan_penyakit 
+             WHERE tahun = ? AND kecamatan_id = ? AND diagnosa_nama = ? AND jumlah_kasus = ? AND created_at >= NOW() - INTERVAL 1 MINUTE
+             ORDER BY id DESC LIMIT 1`
+          : `SELECT id FROM keswan_laporan_penyakit 
+             WHERE tahun = ? AND id_kecamatan = ? AND jumlah_kasus = ? AND created_at >= NOW() - INTERVAL 1 MINUTE
+             ORDER BY id DESC LIMIT 1`,
+        hasDiagNama && hasKecId 
+          ? [Number(tahun) || 2026, kecCode, diagnosa_nama, Number(jumlah_kasus) || 0]
+          : [Number(tahun) || 2026, kecIdNum, Number(jumlah_kasus) || 0]
+      );
+      if (existing && existing.length > 0) {
+        return NextResponse.json({
+          success: true,
+          message: 'Data kasus penyakit sudah tersimpan (anti-duplikasi aktif).',
+          id: existing[0].id,
+        });
+      }
+    } catch {}
 
     let insertResult: any;
     if (hasDiagNama && hasKecId) {

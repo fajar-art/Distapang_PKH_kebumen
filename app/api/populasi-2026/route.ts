@@ -8,30 +8,35 @@ export const dynamic = 'force-dynamic';
 
 async function ensureTable() {
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS populasi_2026 (
+    CREATE TABLE IF NOT EXISTS populasi_desa (
       id INT AUTO_INCREMENT PRIMARY KEY,
+      tahun INT NOT NULL DEFAULT 2026,
       tw VARCHAR(20) NOT NULL DEFAULT 'TW 1',
       kecamatan VARCHAR(100) NOT NULL,
       desa VARCHAR(100) NOT NULL,
       data_v JSON,
       grand_total INT DEFAULT 0,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY unique_desa_tw_tahun (tahun, tw, kecamatan, desa),
+      INDEX idx_tahun_tw (tahun, tw),
+      INDEX idx_kec_desa (kecamatan, desa)
     ) ENGINE=InnoDB;
   `);
 }
 
-// GET: Ambil semua data populasi 2026
+// GET: Ambil semua data populasi desa per tahun & triwulan
 export async function GET(request: Request) {
   try {
     await ensureTable();
     const { searchParams } = new URL(request.url);
+    const tahun = parseInt(searchParams.get('year') || searchParams.get('tahun') || '2026', 10);
     const tw = searchParams.get('tw');
 
-    let query = 'SELECT * FROM populasi_2026';
-    const params: any[] = [];
+    let query = 'SELECT * FROM populasi_desa WHERE tahun = ?';
+    const params: any[] = [tahun];
 
     if (tw) {
-      query += ' WHERE tw = ?';
+      query += ' AND tw = ?';
       params.push(tw);
     }
 
@@ -41,6 +46,7 @@ export async function GET(request: Request) {
 
     const formatted = rows.map((r: any) => ({
       id: r.id,
+      tahun: r.tahun,
       tw: r.tw,
       kec: r.kecamatan,
       desa: r.desa,
@@ -50,7 +56,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ success: true, data: formatted });
   } catch (error: any) {
-    console.error('Error GET populasi_2026:', error);
+    console.error('Error GET populasi_desa:', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
@@ -67,19 +73,22 @@ export async function POST(request: Request) {
     // Mode Bulk / Array
     if (Array.isArray(body)) {
       for (const item of body) {
-        const { tw = 'TW 1', kec, desa, values = {}, grandTotal = 0 } = item;
+        const { tahun = 2026, tw = 'TW 1', kec, desa, values = {}, grandTotal = 0 } = item;
         if (kec && desa) {
           const [result]: any = await pool.query(
-            `INSERT INTO populasi_2026 (tw, kecamatan, desa, data_v, grand_total)
-             VALUES (?, ?, ?, ?, ?)`,
-            [tw, kec, desa, JSON.stringify(values), grandTotal]
+            `INSERT INTO populasi_desa (tahun, tw, kecamatan, desa, data_v, grand_total)
+             VALUES (?, ?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE
+               data_v = VALUES(data_v),
+               grand_total = VALUES(grand_total)`,
+            [Number(tahun) || 2026, tw, kec, desa, JSON.stringify(values), grandTotal]
           );
           
           await logActivity({
             module: 'bitpro',
             submenu: 'populasi-dan-produksi',
-            tableName: 'populasi_2026',
-            recordId: result.insertId,
+            tableName: 'populasi_desa',
+            recordId: result.insertId || undefined,
             action: 'CREATE',
             userName,
             details: item,
@@ -90,7 +99,7 @@ export async function POST(request: Request) {
     }
 
     // Mode Single Desa
-    const { tw = 'TW 1', kec, desa, values = {}, grandTotal = 0, id } = body;
+    const { tahun = 2026, tw = 'TW 1', kec, desa, values = {}, grandTotal = 0, id } = body;
 
     if (!kec || !desa) {
       return NextResponse.json({ success: false, error: 'Kecamatan dan Desa wajib diisi!' }, { status: 400 });
@@ -99,14 +108,14 @@ export async function POST(request: Request) {
     if (id) {
       // Edit data lama
       await pool.query(
-        `UPDATE populasi_2026 SET tw = ?, kecamatan = ?, desa = ?, data_v = ?, grand_total = ? WHERE id = ?`,
-        [tw, kec, desa, JSON.stringify(values), grandTotal, id]
+        `UPDATE populasi_desa SET tahun = ?, tw = ?, kecamatan = ?, desa = ?, data_v = ?, grand_total = ? WHERE id = ?`,
+        [Number(tahun) || 2026, tw, kec, desa, JSON.stringify(values), grandTotal, id]
       );
       
       await logActivity({
         module: 'bitpro',
         submenu: 'populasi-dan-produksi',
-        tableName: 'populasi_2026',
+        tableName: 'populasi_desa',
         recordId: id,
         action: 'UPDATE',
         userName,
@@ -115,18 +124,21 @@ export async function POST(request: Request) {
       
       return NextResponse.json({ success: true, message: 'Data populasi desa berhasil diperbarui!' });
     } else {
-      // Tambah baru
+      // Tambah baru dengan proteksi duplikasi otomatis (UPSERT)
       const [result]: any = await pool.query(
-        `INSERT INTO populasi_2026 (tw, kecamatan, desa, data_v, grand_total)
-         VALUES (?, ?, ?, ?, ?)`,
-        [tw, kec, desa, JSON.stringify(values), grandTotal]
+        `INSERT INTO populasi_desa (tahun, tw, kecamatan, desa, data_v, grand_total)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+           data_v = VALUES(data_v),
+           grand_total = VALUES(grand_total)`,
+        [Number(tahun) || 2026, tw, kec, desa, JSON.stringify(values), grandTotal]
       );
       
       await logActivity({
         module: 'bitpro',
         submenu: 'populasi-dan-produksi',
-        tableName: 'populasi_2026',
-        recordId: result.insertId,
+        tableName: 'populasi_desa',
+        recordId: result.insertId || undefined,
         action: 'CREATE',
         userName,
         details: body,
@@ -135,7 +147,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, insertId: result.insertId, message: 'Data populasi desa berhasil disimpan ke database!' });
     }
   } catch (error: any) {
-    console.error('Error POST populasi_2026:', error);
+    console.error('Error POST populasi_desa:', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
@@ -154,12 +166,12 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ success: false, error: 'ID tidak ditemukan!' }, { status: 400 });
     }
 
-    await pool.query('DELETE FROM populasi_2026 WHERE id = ?', [id]);
+    await pool.query('DELETE FROM populasi_desa WHERE id = ?', [id]);
     
     await logActivity({
       module: 'bitpro',
       submenu: 'populasi-dan-produksi',
-      tableName: 'populasi_2026',
+      tableName: 'populasi_desa',
       recordId: id,
       action: 'DELETE',
       userName,

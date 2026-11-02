@@ -150,10 +150,10 @@ export default function LandingServicesSection({
           )}
 
           {/* Table Layout for detail views */}
-          <div className="overflow-x-auto rounded-xl border-2 border-slate-200 dark:border-slate-700 shadow-xs bg-white dark:bg-slate-800">
+          <div className="overflow-x-auto max-h-[500px] overflow-y-auto rounded-xl border-2 border-slate-200 dark:border-slate-700 shadow-xs bg-white dark:bg-slate-800">
             {detailView === 'populasi' && subTabProd === 'populasi' && (
               <table className="w-full text-left text-xs sm:text-sm whitespace-nowrap">
-                <thead className="bg-slate-50 dark:bg-slate-900/80 text-slate-700 dark:text-slate-300 font-semibold border-b-2 border-slate-200 dark:border-slate-700">
+                <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 font-semibold border-b-2 border-slate-200 dark:border-slate-700 shadow-xs">
                   <tr>
                     <th className="p-3 sm:p-3.5 w-12 sm:w-14 text-center">NO</th>
                     <th className="p-3 sm:p-3.5">KOMODITAS TERNAK</th>
@@ -176,7 +176,7 @@ export default function LandingServicesSection({
 
             {detailView === 'populasi' && subTabProd === 'daging' && (
               <table className="w-full text-left text-xs sm:text-sm whitespace-nowrap">
-                <thead className="bg-slate-50 dark:bg-slate-900/80 text-slate-700 dark:text-slate-300 font-semibold border-b-2 border-slate-200 dark:border-slate-700">
+                <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 font-semibold border-b-2 border-slate-200 dark:border-slate-700 shadow-xs">
                   <tr>
                     <th className="p-3 sm:p-3.5 w-12 sm:w-14 text-center">NO</th>
                     <th className="p-3 sm:p-3.5">JENIS TERNAK POTONG</th>
@@ -199,7 +199,7 @@ export default function LandingServicesSection({
 
             {detailView === 'populasi' && subTabProd === 'telur' && (
               <table className="w-full text-left text-xs sm:text-sm whitespace-nowrap">
-                <thead className="bg-slate-50 dark:bg-slate-900/80 text-slate-700 dark:text-slate-300 font-semibold border-b-2 border-slate-200 dark:border-slate-700">
+                <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 font-semibold border-b-2 border-slate-200 dark:border-slate-700 shadow-xs">
                   <tr>
                     <th className="p-3 sm:p-3.5 w-12 sm:w-14 text-center">NO</th>
                     <th className="p-3 sm:p-3.5">KOMODITAS UNGGAS PETELUR</th>

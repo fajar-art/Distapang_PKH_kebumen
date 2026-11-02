@@ -22,12 +22,10 @@ export type KegiatanKTT = {
 };
 
 export const DAFTAR_TIM_PELAKSANA = [
-  'Tim Pembibitan & Produksi Bitpro',
-  'Tim Monitoring & Evaluasi Lapangan',
-  'Tim Medis Veteriner & Kesehatan Ternak',
-  'Tim Verifikasi Kelayakan Bantuan',
-  'Tim Pendamping Penyuluh Kecamatan',
-  'Tim Sarana & Prasarana Peternakan',
+  'Tim Bitpro',
+  'Tim Keswan',
+  'Tim Kesmavet',
+  'Puskeswan',
 ];
 
 export const PRESET_KEGIATAN = [

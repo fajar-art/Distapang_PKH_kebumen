@@ -63,9 +63,15 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     const puskeswanName = rows[0].puskeswan;
 
     await conn.beginTransaction();
+    const cleanPusk = puskeswanName.toUpperCase().replace(/^PUSKESWAN\s+/i, '').trim();
+    const standardPuskName = `Puskeswan ${cleanPusk.charAt(0).toUpperCase() + cleanPusk.slice(1).toLowerCase()}`;
+
     await conn.execute(
-      'DELETE FROM vaksinasi WHERE puskeswan = ? OR puskeswan = ? OR UPPER(TRIM(REPLACE(puskeswan, "Puskeswan ", ""))) = ?',
-      [puskeswanName, `Puskeswan ${puskeswanName}`, puskeswanName]
+      `DELETE FROM vaksinasi 
+       WHERE id_puskeswan IN (
+         SELECT id_puskeswan FROM wilayah_binaan WHERE LOWER(nama_puskeswan) LIKE LOWER(?)
+       ) OR nama = ? OR nama = ?`,
+      [`%${cleanPusk}%`, standardPuskName, puskeswanName]
     );
     await conn.execute('DELETE FROM vaksinasi_bulanan WHERE id = ?', [id]);
     await conn.commit();

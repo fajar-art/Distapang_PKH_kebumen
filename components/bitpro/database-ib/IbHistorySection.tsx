@@ -59,26 +59,26 @@ export default function IbHistorySection({ allIbHistory }: IbHistorySectionProps
       {/* ── TABEL LOG RIWAYAT IB ── */}
       <div className="overflow-x-auto w-full">
         <table className="w-full text-xs sm:text-sm text-left whitespace-nowrap">
-          <thead className="bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700 text-[11px] uppercase tracking-wider font-bold">
+          <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-b border-slate-300 dark:border-slate-700 text-[11px] uppercase tracking-wider font-bold">
             <tr>
-              <th className="px-5 py-3.5">No &amp; Siklus</th>
-              <th className="px-5 py-3.5">Identitas Sapi &amp; Peternak</th>
-              <th className="px-5 py-3.5">Waktu Pelaksanaan IB</th>
-              <th className="px-5 py-3.5">Pejantan &amp; Kode Straw</th>
-              <th className="px-5 py-3.5">Inseminator</th>
-              <th className="px-5 py-3.5">Hasil PKB / Kelahiran</th>
+              <th className="px-5 py-3.5 border-r border-slate-300 dark:border-slate-700">No &amp; Siklus</th>
+              <th className="px-5 py-3.5 border-r border-slate-300 dark:border-slate-700">Identitas Sapi &amp; Peternak</th>
+              <th className="px-5 py-3.5 border-r border-slate-300 dark:border-slate-700">Waktu Pelaksanaan IB</th>
+              <th className="px-5 py-3.5 border-r border-slate-300 dark:border-slate-700">Pejantan &amp; Kode Straw</th>
+              <th className="px-5 py-3.5 border-r border-slate-300 dark:border-slate-700">Inseminator</th>
+              <th className="px-5 py-3.5 border-r border-slate-300 dark:border-slate-700">Hasil PKB / Kelahiran</th>
               <th className="px-5 py-3.5">Catatan</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-800 dark:text-slate-200">
+          <tbody className="divide-y divide-slate-300 dark:divide-slate-700 text-slate-800 dark:text-slate-200">
             {filteredHistory.map((item, idx) => {
               const ibOrder = item.ibOrder || 1;
               const isRepeated = ibOrder > 1;
 
               return (
-                <tr key={`${item.id}-${idx}`} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors">
+                <tr key={`${item.id}-${idx}`} className="odd:bg-white even:bg-slate-100 dark:odd:bg-slate-900/60 dark:even:bg-slate-800/50 hover:bg-blue-50/60 dark:hover:bg-slate-800/80 transition-colors">
                   {/* 1. No & Siklus */}
-                  <td className="px-5 py-3.5">
+                  <td className="px-5 py-3.5 border-r border-slate-300 dark:border-slate-700">
                     <div className="flex items-center gap-2">
                       <span className="text-slate-400 font-mono text-xs w-5">{idx + 1}.</span>
                       {isRepeated ? (
@@ -94,7 +94,7 @@ export default function IbHistorySection({ allIbHistory }: IbHistorySectionProps
                   </td>
 
                   {/* 2. Sapi & Peternak */}
-                  <td className="px-5 py-3.5">
+                  <td className="px-5 py-3.5 border-r border-slate-300 dark:border-slate-700">
                     <span className="font-bold text-slate-900 dark:text-slate-100 text-xs block flex items-center gap-1.5">
                       <User size={13} className="text-slate-400" />
                       {item.ownerName || 'Peternak Tanpa Nama'}
@@ -108,7 +108,7 @@ export default function IbHistorySection({ allIbHistory }: IbHistorySectionProps
                   </td>
 
                   {/* 3. Waktu IB */}
-                  <td className="px-5 py-3.5">
+                  <td className="px-5 py-3.5 border-r border-slate-300 dark:border-slate-700">
                     <span className="font-bold text-slate-900 dark:text-slate-100 block text-xs">
                       {fmtDate(item.date)}
                     </span>
@@ -116,7 +116,7 @@ export default function IbHistorySection({ allIbHistory }: IbHistorySectionProps
                   </td>
 
                   {/* 4. Pejantan & Straw */}
-                  <td className="px-5 py-3.5">
+                  <td className="px-5 py-3.5 border-r border-slate-300 dark:border-slate-700">
                     <span className="font-bold text-slate-900 dark:text-slate-100 block text-xs">
                       {item.bullName} <span className="text-slate-400 font-normal">({item.bullBreed})</span>
                     </span>
@@ -126,12 +126,12 @@ export default function IbHistorySection({ allIbHistory }: IbHistorySectionProps
                   </td>
 
                   {/* 5. Inseminator */}
-                  <td className="px-5 py-3.5 text-xs font-medium text-slate-700 dark:text-slate-300">
+                  <td className="px-5 py-3.5 text-xs font-medium text-slate-700 dark:text-slate-300 border-r border-slate-300 dark:border-slate-700">
                     {item.inseminatorName || '-'}
                   </td>
 
                   {/* 6. Hasil PKB / Kelahiran */}
-                  <td className="px-5 py-3.5">
+                  <td className="px-5 py-3.5 border-r border-slate-300 dark:border-slate-700">
                     {item.birthDate ? (
                       <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 px-2 py-0.5 rounded-md">
                         Lahir: {fmtDate(item.birthDate)} ({item.calfGender || 'Pedet'})
