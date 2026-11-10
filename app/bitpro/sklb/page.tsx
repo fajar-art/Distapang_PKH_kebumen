@@ -477,8 +477,13 @@ export default function UnifiedSKLBPage() {
     }
   };
 
-  const tabelKiri = dataRekap.filter((d) => d.grup === 'Tabel Kiri').sort((a, b) => a.no_urut - b.no_urut);
-  const tabelKanan = dataRekap.filter((d) => d.grup === 'Tabel Kanan').sort((a, b) => a.no_urut - b.no_urut);
+  const tabelKiri = dataRekap
+  .filter((d) => d.grup === 'Tabel Kiri' || d.grup?.toLowerCase() === 'timur')
+  .sort((a, b) => a.no_urut - b.no_urut);
+
+  const tabelKanan = dataRekap
+  .filter((d) => d.grup === 'Tabel Kanan' || d.grup?.toLowerCase() === 'barat')
+  .sort((a, b) => a.no_urut - b.no_urut);
 
   const daftarDesa = useMemo(() => {
     const unik = Array.from(new Set(dataDetail.map((d) => d.desa_lokasi)));
